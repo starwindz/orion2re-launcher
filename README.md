@@ -15,8 +15,10 @@ A modern, dark-themed Python launcher for **Orion2Re** (Master of Orion II Redon
    - Displays a prominent status card with a warning banner if game files are missing, without exposing raw executable names to users.
 
 3. **Orion2Re Automated Downloader & Updater**
-   - Automatically inspects the latest successful build from the [starwindz/build_orion2re GitHub Actions workflow](https://github.com/starwindz/build_orion2re/actions/workflows/build.yml).
-   - Downloads the latest artifact and extracts it directly into the project root directory with real-time download progress bar and percentage display.
+   - **About Orion2Re**: **Orion2Re** (Master of Orion II Redone) is an open-source engine reimplementation and modern source port for the legendary 4X strategy classic *Master of Orion II: Battle at Antares*. Comprehensive engine documentation and technical specifications are available at the [Orion2Re Documentation](https://moo2mod.com/redone/doc/index.html).
+   - **Special Thanks**: Our deepest gratitude to the creators, developers, and contributors of the **Orion2Re** project for their tireless dedication, incredible reverse-engineering achievements, and passion in preserving and revitalizing Master of Orion II for modern hardware and systems. Special thanks also to **Ajaja** for authoring the original automated CI/CD build workflows.
+   - **Automated Discovery**: Automatically inspects the latest successful build from the [starwindz/build_orion2re GitHub Actions workflow](https://github.com/starwindz/build_orion2re/actions/workflows/build.yml).
+   - **One-Click Installation**: Streams the latest release artifact and unpacks it directly into the project root directory with real-time progress percentage and byte transfer rate display.
 
 4. **`data/orion2re.cfg` Visual Configuration Editor**
    - Load, modify, and save engine settings easily via UI combo boxes and toggle switches:
