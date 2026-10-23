@@ -1,0 +1,34 @@
+# Ignore everything by default
+/*
+
+# Allow gitignore itself
+!/.gitignore
+
+# Whitelist project Python source files and documentation
+!/launcher.py
+!/config_manager.py
+!/downloader.py
+!/main.py
+!/main.pyw
+!/test_launcher.py
+!/launcher.bat
+!/build.bat
+!/launcher.exe
+!/requirements.txt
+!/README.md
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Ignore Python runtime caches and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+ENV/
+
