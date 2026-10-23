@@ -29,6 +29,8 @@ def get_app_root():
 try:
     import customtkinter as ctk
 except ModuleNotFoundError:
+    if "unittest" in sys.modules:
+        raise
     root = tk.Tk()
     root.withdraw()
     res = messagebox.askyesno(
