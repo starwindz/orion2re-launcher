@@ -412,7 +412,7 @@ class Orion2Launcher(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Master of Orion II - Orion2Re Launcher")
+        self.title("Master of Orion II - Orion2Re Launcher: v1.01")
 
         # Resolve real root directory (handles PyInstaller bundle vs Python script)
         self.root_dir = get_app_root()
@@ -827,7 +827,7 @@ class Orion2Launcher(ctk.CTk):
         # Version label displayed at the bottom-right corner of the launcher
         ver_lbl = ctk.CTkLabel(
             bottom_bar,
-            text="Ver.1.0",
+            text="Ver.1.01",
             font=ctk.CTkFont(size=10),
             text_color="#64748b"
         )
