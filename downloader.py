@@ -202,9 +202,32 @@ class Orion2ReDownloader:
         buffer.seek(0)
         os.makedirs(self.target_dir, exist_ok=True)
 
-        # Unpack files into the project directory
+        # Unpack files into the project directory, preserving existing data/orion2re.cfg if already present
+        cfg_rel_path = os.path.normpath("data/orion2re.cfg")
+        existing_cfg_content = None
+        target_cfg_path = os.path.join(self.target_dir, "data", "orion2re.cfg")
+        if os.path.isfile(target_cfg_path):
+            try:
+                with open(target_cfg_path, "rb") as f:
+                    existing_cfg_content = f.read()
+            except Exception as e:
+                print(f"[Downloader] Warning: could not backup existing config: {e}")
+
         with zipfile.ZipFile(buffer) as z:
-            z.extractall(self.target_dir)
+            for member in z.infolist():
+                norm_member = os.path.normpath(member.filename)
+                # If target cfg already exists, do not overwrite it with the default template from zip
+                if existing_cfg_content and norm_member.lower() == cfg_rel_path.lower():
+                    continue
+                z.extract(member, self.target_dir)
+
+        # Restore existing configuration file to guarantee user settings are preserved
+        if existing_cfg_content and os.path.isfile(target_cfg_path):
+            try:
+                with open(target_cfg_path, "wb") as f:
+                    f.write(existing_cfg_content)
+            except Exception as e:
+                print(f"[Downloader] Error restoring user config: {e}")
 
         self._notify_status(f"Installed successfully: {artifact_name}")
         self._notify_progress(100, 100)

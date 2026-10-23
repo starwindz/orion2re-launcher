@@ -143,6 +143,36 @@ class TestOrion2Launcher(unittest.TestCase):
         self.assertEqual(cfg2.mods, ["custom_ui_mod", "ice_balance", "v150i"])
         self.assertEqual(cfg2.mod, "custom_ui_mod")
 
+    def test_repeated_save_no_comment_duplication(self):
+        """
+        Verifies that saving, reloading, and re-saving the configuration multiple times
+        does NOT duplicate header comments (such as '# Custom user settings:' or '# Active mods').
+        """
+        cfg_path = os.path.join(self.data_dir, "orion2re.cfg")
+        
+        # Perform 5 consecutive load-save cycles
+        for _ in range(5):
+            mgr = Orion2ConfigManager(self.test_dir)
+            mgr.save()
+
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # Each header comment must appear at most once
+        self.assertEqual(content.count("# Custom user settings:"), 0)
+        self.assertEqual(content.count("# Active mods (listed in priority order, highest priority first):"), 1)
+
+    def test_resolution_1120x840_preset(self):
+        """
+        Verifies that the new 1120x840 (1.75x) resolution preset parses and saves accurately.
+        """
+        cfg = Orion2ConfigManager(self.test_dir)
+        cfg.resolution = "1120x840 (1.75x)"
+        cfg.save()
+
+        cfg2 = Orion2ConfigManager(self.test_dir)
+        self.assertEqual(cfg2.resolution, "1120x840 (1.75x)")
+
     def test_downloader_build_discovery_starwindz(self):
         """
         Verifies that build discovery can connect to GitHub Actions API for starwindz/build_orion2re,

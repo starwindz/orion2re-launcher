@@ -17,10 +17,10 @@ Orion2Re Launcher provides an all-in-one graphical toolkit to download the moder
    - Displays a prominent status card with a warning banner if game files are missing, without exposing raw executable names to users.
 
 3. **Orion2Re Automated Downloader & Updater**
-   - **About Orion2Re**: **Orion2Re** (Master of Orion II Redone) is an open-source engine reimplementation and modern source port for the legendary 4X strategy classic *Master of Orion II: Battle at Antares*. Comprehensive engine documentation and technical specifications are available at the [Orion2Re Documentation](https://moo2mod.com/redone/doc/index.html).
+   - **About Orion2Re**: **Orion2Re** (Master of Orion II Redone) is an open-source engine reimplementation and modern source port for the legendary 4X strategy classic *Master of Orion II: Battle at Antares*. The official source code repository is hosted on GitHub at [orion2re/orion2re](https://github.com/orion2re/orion2re), with technical documentation available at the [Orion2Re Documentation](https://moo2mod.com/redone/doc/index.html).
    - **Special Thanks**: Our deepest gratitude to the creators, developers, and contributors of the **Orion2Re** project for their tireless dedication, incredible reverse-engineering achievements, and passion in preserving and revitalizing Master of Orion II for modern hardware and systems.
    - **Automated Discovery**: Automatically inspects the latest successful build from the [starwindz/build_orion2re GitHub Actions workflow](https://github.com/starwindz/build_orion2re/actions/workflows/build.yml), which is forked from the build action at [Ajaja/build_orion2re](https://github.com/Ajaja/build_orion2re/actions/workflows/build.yml). Special thanks to **Ajaja** for creating and providing this automated build action!
-   - **One-Click Installation**: Streams the latest release artifact and unpacks it directly into the project root directory with real-time progress percentage and byte transfer rate display.
+   - **One-Click Installation**: Streams the latest release artifact and unpacks it directly into the project root directory with real-time progress percentage and byte transfer rate display. User-configured active mods and settings are preserved across updates.
 
 4. **Multi-Mod Management & Priority Load Ordering**
    - **Multiple Mod Activation**: Enable multiple mods or add-on packages simultaneously rather than being restricted to a single choice.
@@ -33,10 +33,14 @@ Orion2Re Launcher provides an all-in-one graphical toolkit to download the moder
      - **Active Mods**: View current mod combinations or open the multi-mod priority organizer.
      - **Display Scaler**: `(Default)`, `hq2x`.
      - **Display Mode**: `Windowed` or `Fullscreen`.
-     - **Resolution**: `640x480 (1x)`, `960x720 (1.5x)`, `1280x960 (2x)`, `1440x1080 (2.25x)`, `1920x1080 (FHD)`, etc.
+     - **Resolution**: `640x480 (1x)`, `960x720 (1.5x)`, `1120x840 (1.75x)`, `1280x960 (2x)`, `1440x1080 (2.25x)`, `1920x1080 (FHD)`, etc.
      - **VSync**: Enable or disable vertical synchronization.
      - **Multiplayer Router IP**: Configure community router (`209.38.39.19`).
-   - Buttons: `Save Settings` and `Reset Settings` (resets settings back to recommended defaults).
+   - Action Buttons:
+     - `Save Settings`: Writes settings to `data/orion2re.cfg`.
+     - `Reset Settings`: Resets settings back to recommended defaults.
+     - `Refresh Settings`: Reloads configuration from disk into the UI.
+     - `View Orion2Re.cfg`: Opens the configuration file directly in the system text editor.
    - Generates clean, strictly validated syntax (semicolon-terminated statements) compatible with the Orion2Re configuration parser.
 
 6. **Synchronous Game Launch (Play Button)**

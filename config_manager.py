@@ -40,6 +40,7 @@ class Orion2ConfigManager:
     RESOLUTION_PRESETS = [
         "640x480 (1x Default)",
         "960x720 (1.5x)",
+        "1120x840 (1.75x)",
         "1280x960 (2x)",
         "1440x1080 (2.25x)",
         "1600x1200 (2.5x)",
@@ -201,16 +202,19 @@ class Orion2ConfigManager:
                     self.router = m_rt.group(1)
                     continue
 
-                # Filter out standard template header comments to prevent clutter buildup
-                if stripped.startswith("# Orion2 Redone") or stripped.startswith("# ---"):
+                # Filter out launcher-generated comments and template headers to prevent duplication
+                if (stripped.startswith("# Orion2 Redone") or 
+                    stripped.startswith("# ---") or
+                    stripped.startswith("# Active mods") or
+                    stripped.startswith("# Custom user settings") or
+                    stripped.startswith("# Startup display settings") or
+                    stripped.startswith("# interface scaler") or
+                    stripped.startswith("# interface vsync_enabled") or
+                    stripped.startswith("# enable ")):
                     continue
 
                 # Preserve any user custom comments or additional config values
-                if (stripped and 
-                    not stripped.startswith("# interface scaler") and 
-                    not stripped.startswith("# interface vsync_enabled") and 
-                    not stripped.startswith("# enable ") and
-                    not stripped.startswith("# Startup display settings")):
+                if stripped:
                     self.extra_lines.append(line)
 
             # Set loaded mods list (or empty if no enable lines were present)
@@ -282,11 +286,20 @@ class Orion2ConfigManager:
             if self.router:
                 lines.append(f'interface router = "{self.router}";\n')
 
-            # 6. Append preserved extra/custom user lines
-            if self.extra_lines:
+            # 6. Append preserved extra/custom user lines (cleaned to prevent duplicate headers)
+            cleaned_extras = []
+            for extra in self.extra_lines:
+                s = extra.strip()
+                if (s and 
+                    not s.startswith("# Custom user settings") and
+                    not s.startswith("# Active mods") and
+                    not s.startswith("# Orion2 Redone") and
+                    not s.startswith("# ---")):
+                    cleaned_extras.append(extra if extra.endswith("\n") else extra + "\n")
+
+            if cleaned_extras:
                 lines.append("\n# Custom user settings:\n")
-                for extra in self.extra_lines:
-                    lines.append(extra if extra.endswith("\n") else extra + "\n")
+                lines.extend(cleaned_extras)
 
             with open(self.cfg_path, "w", encoding="utf-8") as f:
                 f.writelines(lines)

@@ -412,15 +412,11 @@ class Orion2Launcher(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Master of Orion II - Orion2Re Launcher: v1.01")
+        self.title("Master of Orion II - Orion2Re Launcher: v1.02")
 
         # Resolve real root directory (handles PyInstaller bundle vs Python script)
         self.root_dir = get_app_root()
         self.exe_path = os.path.join(self.root_dir, "orion2re.exe")
-
-        # Center the window on the user's desktop screen with 720x704 geometry (increased 5% from 670px)
-        self.minsize(680, 660)
-        self._center_on_screen(720, 704)
 
         # Configuration manager & state tracking
         self.config_mgr = Orion2ConfigManager(self.root_dir)
@@ -433,17 +429,24 @@ class Orion2Launcher(ctk.CTk):
         # Perform initial environment status check
         self.refresh_environment_status()
 
+        # Center the window on the user's desktop screen with 720x704 geometry
+        # Explicitly excludes the Windows taskbar height (via SPI_GETWORKAREA)
+        self.minsize(680, 660)
+        self._center_on_screen(720, 704)
+
     def _center_on_screen(self, window_w=720, window_h=704):
         """
         Calculates and applies exact horizontal and vertical centering on the user's desktop.
-        Accounts for the Windows taskbar (via SPI_GETWORKAREA) to ensure true visual centering
-        in the available workspace rather than overflowing beneath the taskbar.
+        Explicitly excludes the Windows taskbar height (via SPI_GETWORKAREA) to ensure true visual centering
+        in the available desktop workspace rather than overflowing beneath or touching the taskbar.
         """
+        self.update_idletasks()
+
         # Default fallback centering using standard screen metrics
-        screen_w = self.winfo_screenwidth()
-        screen_h = self.winfo_screenheight()
-        pos_x = max(0, (screen_w - window_w) // 2)
-        pos_y = max(0, (screen_h - window_h) // 2)
+        work_left = 0
+        work_top = 0
+        work_w = self.winfo_screenwidth()
+        work_h = self.winfo_screenheight()
 
         # On Windows, query the usable desktop working area (excluding taskbar)
         if sys.platform == "win32":
@@ -460,14 +463,21 @@ class Orion2Launcher(ctk.CTk):
                     ]
 
                 rect = RECT()
-                # SPI_GETWORKAREA = 0x0030
+                # SPI_GETWORKAREA = 0x0030: retrieves screen rectangle excluding the taskbar
                 if ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(rect), 0):
+                    work_left = rect.left
+                    work_top = rect.top
                     work_w = rect.right - rect.left
                     work_h = rect.bottom - rect.top
-                    pos_x = rect.left + max(0, (work_w - window_w) // 2)
-                    pos_y = rect.top + max(0, (work_h - window_h) // 2)
             except Exception as e:
                 print(f"[Launcher] Fallback to standard screen dimensions: {e}")
+
+        # Account for standard Windows title bar and window frame borders (~38px)
+        # so the entire window frame fits vertically within the usable work area above the taskbar
+        total_frame_h = window_h + 38 if sys.platform == "win32" else window_h
+
+        pos_x = work_left + max(0, (work_w - window_w) // 2)
+        pos_y = work_top + max(0, (work_h - total_frame_h) // 2)
 
         self.geometry(f"{window_w}x{window_h}+{pos_x}+{pos_y}")
 
@@ -772,14 +782,14 @@ class Orion2Launcher(ctk.CTk):
         self.router_entry.insert(0, self.config_mgr.router or self.config_mgr.DEFAULT_ROUTER)
         self.router_entry.grid(row=5, column=1, sticky="ew", padx=(12, 0), pady=2)
 
-        # Action Buttons row: Reset Settings & Save Settings
+        # Action Buttons row: View Orion2Re.cfg, Refresh Settings, Reset Settings, Save Settings
         btn_frame = ctk.CTkFrame(card, fg_color="transparent")
         btn_frame.pack(fill="x", padx=14, pady=(5, 0))
 
         self.save_btn = ctk.CTkButton(
             btn_frame,
             text="Save Settings",
-            width=105,
+            width=100,
             height=24,
             font=ctk.CTkFont(size=11, weight="bold"),
             fg_color="#10b981",
@@ -791,14 +801,38 @@ class Orion2Launcher(ctk.CTk):
         self.reset_btn = ctk.CTkButton(
             btn_frame,
             text="Reset Settings",
-            width=105,
+            width=100,
             height=24,
             font=ctk.CTkFont(size=11),
             fg_color="#475569",
             hover_color="#64748b",
             command=self.reset_settings
         )
-        self.reset_btn.pack(side="right", padx=(0, 8))
+        self.reset_btn.pack(side="right", padx=(0, 6))
+
+        self.refresh_btn = ctk.CTkButton(
+            btn_frame,
+            text="Refresh Settings",
+            width=110,
+            height=24,
+            font=ctk.CTkFont(size=11),
+            fg_color="#2563eb",
+            hover_color="#1d4ed8",
+            command=self.refresh_settings
+        )
+        self.refresh_btn.pack(side="right", padx=(0, 6))
+
+        self.view_cfg_btn = ctk.CTkButton(
+            btn_frame,
+            text="View Orion2Re.cfg",
+            width=125,
+            height=24,
+            font=ctk.CTkFont(size=11),
+            fg_color="#334155",
+            hover_color="#475569",
+            command=self.view_orion2re_cfg
+        )
+        self.view_cfg_btn.pack(side="right", padx=(0, 6))
 
     def _build_play_section(self, parent):
         """
@@ -827,7 +861,7 @@ class Orion2Launcher(ctk.CTk):
         # Version label displayed at the bottom-right corner of the launcher
         ver_lbl = ctk.CTkLabel(
             bottom_bar,
-            text="Ver.1.01",
+            text="Ver.1.02",
             font=ctk.CTkFont(size=10),
             text_color="#64748b"
         )
@@ -972,6 +1006,46 @@ class Orion2Launcher(ctk.CTk):
 
         self.download_status_lbl.configure(text="Settings have been reset to defaults.")
 
+    def refresh_settings(self):
+        """
+        Reloads configuration from 'data/orion2re.cfg' and synchronizes UI controls.
+        """
+        success = self.config_mgr.load()
+        self._refresh_mod_ui()
+        self.scaler_combo.set(self.config_mgr.scaler)
+        self.display_combo.set("Fullscreen" if self.config_mgr.fullscreen else "Windowed")
+        self.res_combo.set(self.config_mgr.resolution)
+        if self.config_mgr.vsync:
+            self.vsync_switch.select()
+        else:
+            self.vsync_switch.deselect()
+        self.router_entry.delete(0, "end")
+        self.router_entry.insert(0, self.config_mgr.router or self.config_mgr.DEFAULT_ROUTER)
+
+        if success:
+            self.download_status_lbl.configure(text="Settings reloaded from data/orion2re.cfg successfully.")
+        else:
+            self.download_status_lbl.configure(text="No configuration file found; default settings retained.")
+
+    def view_orion2re_cfg(self):
+        """
+        Opens data/orion2re.cfg in the system default text editor.
+        Ensures the file is written to disk first if missing.
+        """
+        if not os.path.isfile(self.config_mgr.cfg_path):
+            self.save_settings()
+
+        try:
+            if sys.platform == "win32":
+                os.startfile(self.config_mgr.cfg_path)
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", self.config_mgr.cfg_path])
+            else:
+                subprocess.Popen(["xdg-open", self.config_mgr.cfg_path])
+            self.download_status_lbl.configure(text=f"Opened {self.config_mgr.cfg_path}")
+        except Exception as e:
+            messagebox.showerror("Error Opening File", f"Failed to open {self.config_mgr.cfg_path}:\n{e}")
+
     def save_settings(self):
         """
         Gathers current UI selections and writes them to 'data/orion2re.cfg'.
@@ -1028,8 +1102,17 @@ class Orion2Launcher(ctk.CTk):
     def _download_worker(self):
         """
         Worker thread for discovering, streaming, and extracting the latest Orion2Re build.
+        Preserves user-configured mods and settings across updates.
         """
         try:
+            # Preserve user's current active mod and configuration state before download/extract
+            saved_mods = list(self.config_mgr.mods)
+            saved_scaler = self.config_mgr.scaler
+            saved_fullscreen = self.config_mgr.fullscreen
+            saved_res = self.config_mgr.resolution
+            saved_vsync = self.config_mgr.vsync
+            saved_router = self.config_mgr.router
+
             def on_status(msg):
                 self.after(0, lambda: self.download_status_lbl.configure(text=msg))
 
@@ -1058,11 +1141,20 @@ class Orion2Launcher(ctk.CTk):
                 self.download_status_lbl.configure(text=f"Installed: {artifact}")
                 self.prog_bar.set(1.0)
                 self.is_downloading = False
-                self.config_mgr.load()
+
+                # Restore and re-save user configuration so mods and display settings are never reset
+                self.config_mgr.mods = saved_mods
+                self.config_mgr.scaler = saved_scaler
+                self.config_mgr.fullscreen = saved_fullscreen
+                self.config_mgr.resolution = saved_res
+                self.config_mgr.vsync = saved_vsync
+                self.config_mgr.router = saved_router
+                self.config_mgr.save()
+
                 self.refresh_environment_status()
                 messagebox.showinfo(
                     "Download Completed",
-                    f"Orion2Re latest build has been installed successfully!\n\nArtifact: {artifact}"
+                    f"Orion2Re latest build has been installed successfully!\n\nArtifact: {artifact}\n\nYour active mods and configuration settings have been preserved."
                 )
 
             self.after(0, on_success)
