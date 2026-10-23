@@ -28,8 +28,21 @@ echo [1/4] Checking and installing build dependencies...
 %PY_CMD% -m pip install --quiet --upgrade pip
 %PY_CMD% -m pip install --quiet pyinstaller customtkinter
 
-echo [2/4] Packaging launcher into standalone executable (launcher.exe)...
-%PY_CMD% -m PyInstaller --noconsole --onefile --clean --collect-all customtkinter --name launcher main.py
+echo [2/4] Packaging launcher into optimized standalone executable (launcher.exe)...
+:: Exclude unused heavy modules (numpy, pygame, test suites) dragged in by global packages
+%PY_CMD% -m PyInstaller --noconsole --onefile --clean --collect-all customtkinter ^
+    --exclude-module numpy ^
+    --exclude-module pygame ^
+    --exclude-module arcade ^
+    --exclude-module pyglet ^
+    --exclude-module pymunk ^
+    --exclude-module unicorn ^
+    --exclude-module capstone ^
+    --exclude-module pypdf ^
+    --exclude-module test ^
+    --exclude-module unittest ^
+    --exclude-module pydoc ^
+    --name launcher main.py
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] PyInstaller build failed!
     pause
