@@ -77,7 +77,7 @@ orion2re-launcher/
 ## Getting Started
 
 > [!IMPORTANT]
-> **Setup**: Please copy `launcher.exe` into the folder where your original Master of Orion II game files are installed.
+> **Setup**: Please copy `launcher.exe` into the folder where your original Master of Orion II game files are installed. After launching the application, click the **"Download Orion2Re"** button to automatically download and install the latest engine build (if the launcher has never been run before, the download will begin automatically upon launch).
 
 ### Option 1: Standalone Executable (No Python Required)
 Run `build.bat` once to compile `launcher.exe`. You can then copy and launch `launcher.exe` directly in your original Master of Orion II folder on any Windows PC even without Python installed.

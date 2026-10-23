@@ -434,6 +434,31 @@ class Orion2Launcher(ctk.CTk):
         self.minsize(680, 660)
         self._center_on_screen(720, 704)
 
+        # Check for first-time launch and trigger auto-download if needed
+        self._check_first_run()
+
+    def _check_first_run(self):
+        """
+        Determines strictly whether the launcher itself has ever been run before in this directory.
+        Checks for the persistent launcher run record (.launcher_initialized).
+        If the launcher has never been executed before, creates the marker and automatically
+        triggers the 'Download Orion2Re' action shortly after UI presentation.
+        """
+        if "unittest" in sys.modules:
+            return
+
+        marker_file = os.path.join(self.root_dir, "data", ".launcher_initialized")
+        if not os.path.isfile(marker_file):
+            try:
+                os.makedirs(os.path.join(self.root_dir, "data"), exist_ok=True)
+                with open(marker_file, "w", encoding="utf-8") as f:
+                    f.write("initialized\n")
+            except Exception as e:
+                print(f"[Launcher] Could not write first-run marker: {e}")
+
+            # Automatically trigger download after UI is fully rendered and visible
+            self.after(600, self.start_download)
+
     def _center_on_screen(self, window_w=720, window_h=704):
         """
         Calculates and applies exact horizontal and vertical centering on the user's desktop.
