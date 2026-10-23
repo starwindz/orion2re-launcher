@@ -16,8 +16,8 @@ A modern, dark-themed Python launcher for **Orion2Re** (Master of Orion II Redon
 
 3. **Orion2Re Automated Downloader & Updater**
    - **About Orion2Re**: **Orion2Re** (Master of Orion II Redone) is an open-source engine reimplementation and modern source port for the legendary 4X strategy classic *Master of Orion II: Battle at Antares*. Comprehensive engine documentation and technical specifications are available at the [Orion2Re Documentation](https://moo2mod.com/redone/doc/index.html).
-   - **Special Thanks**: Our deepest gratitude to the creators, developers, and contributors of the **Orion2Re** project for their tireless dedication, incredible reverse-engineering achievements, and passion in preserving and revitalizing Master of Orion II for modern hardware and systems. Special thanks also to **Ajaja** for authoring the original automated CI/CD build workflows.
-   - **Automated Discovery**: Automatically inspects the latest successful build from the [starwindz/build_orion2re GitHub Actions workflow](https://github.com/starwindz/build_orion2re/actions/workflows/build.yml).
+   - **Special Thanks**: Our deepest gratitude to the creators, developers, and contributors of the **Orion2Re** project for their tireless dedication, incredible reverse-engineering achievements, and passion in preserving and revitalizing Master of Orion II for modern hardware and systems.
+   - **Automated Discovery**: Automatically inspects the latest successful build from the [starwindz/build_orion2re GitHub Actions workflow](https://github.com/starwindz/build_orion2re/actions/workflows/build.yml), which is forked from the build action at [Ajaja/build_orion2re](https://github.com/Ajaja/build_orion2re/actions/workflows/build.yml). Special thanks to **Ajaja** for creating and providing this automated build action!
    - **One-Click Installation**: Streams the latest release artifact and unpacks it directly into the project root directory with real-time progress percentage and byte transfer rate display.
 
 4. **`data/orion2re.cfg` Visual Configuration Editor**
