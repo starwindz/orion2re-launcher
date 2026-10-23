@@ -2,6 +2,10 @@
 
 A modern, dark-themed Python launcher for **Orion2Re** (Master of Orion II Redone Engine) that simplifies downloading, configuring, and playing Master of Orion II.
 
+<p align="center">
+  <img src="screenshots/launcher_main.png" alt="Orion2Re Launcher Main Window" width="560">
+</p>
+
 ---
 
 ## Features
@@ -27,6 +31,10 @@ Orion2Re Launcher provides an all-in-one graphical toolkit to download the moder
    - **Priority Order Control**: Interactive **Mod Priority & Multi-Mod Manager** dialog with dedicated **Move Up (▲)** and **Move Down (▼)** controls. In alignment with Orion2Re's VFS architecture, the top-most mod takes the highest precedence and overrides lower mods, while required dependencies (such as `v150`) are automatically activated by the engine.
    - **Discovered & Custom Mods**: Automatically lists installed mods from `data/mods/` with an option to register custom mod identifiers on demand.
    - **Quick Selector & Presets**: Instant quick combobox for 1-click single mod or vanilla switching, plus default presets (`v150i`, Vanilla).
+
+   <p align="center">
+     <img src="screenshots/mod_manager.png" alt="Orion2Re Mod Priority & Multi-Mod Manager" width="460">
+   </p>
 
 5. **`data/orion2re.cfg` Visual Configuration Editor**
    - Load, modify, and save engine settings easily via UI combo boxes and toggle switches:
@@ -69,6 +77,9 @@ orion2re-launcher/
 ├── main.pyw              # Console-less GUI entry point for Windows
 ├── requirements.txt      # Python dependencies (customtkinter)
 ├── test_launcher.py      # Automated unit tests
+├── screenshots/          # Application screenshots for documentation
+│   ├── launcher_main.png
+│   └── mod_manager.png
 └── README.md             # Project documentation
 ```
 

@@ -16,6 +16,8 @@
 !/launcher.exe
 !/requirements.txt
 !/README.md
+!/screenshots/
+!/screenshots/**
 
 # Build artifacts
 build/
