@@ -63,8 +63,8 @@ class Orion2ConfigManager:
         self.cfg_path = os.path.join(self.data_dir, "orion2re.cfg")
         self.mods_dir = os.path.join(self.data_dir, "mods")
 
-        # Default configuration state
-        self.mod = "v150i"
+        # Default configuration state: active mods list in priority order (index 0 = highest priority)
+        self.mods = ["v150i"]
         self.scaler = "(Default)"
         self.vsync = False
         self.fullscreen = False
@@ -77,6 +77,23 @@ class Orion2ConfigManager:
         # Load existing configuration file if present on disk
         self.load()
 
+    @property
+    def mod(self):
+        """
+        Returns the primary (highest-priority) mod for backward compatibility.
+        """
+        return self.mods[0] if self.mods else "None (Vanilla)"
+
+    @mod.setter
+    def mod(self, val):
+        """
+        Sets a single active mod for backward compatibility.
+        """
+        if not val or val == "None (Vanilla)":
+            self.mods = []
+        else:
+            self.mods = [val]
+
     def reset_defaults(self):
         """
         Resets all configuration values to their recommended defaults and writes to disk.
@@ -84,7 +101,7 @@ class Orion2ConfigManager:
         Returns:
             bool: True if configuration was successfully written, False otherwise.
         """
-        self.mod = "v150i"
+        self.mods = ["v150i"]
         self.scaler = "(Default)"
         self.vsync = False
         self.fullscreen = False
@@ -129,6 +146,7 @@ class Orion2ConfigManager:
         width = None
         height = None
         self.extra_lines = []
+        loaded_mods = []
 
         try:
             with open(self.cfg_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -138,9 +156,12 @@ class Orion2ConfigManager:
                 stripped = line.strip()
 
                 # 1. Active mod declaration: 'enable <mod_identifier>;'
+                # Multiple mods can be enabled. Order in file defines load priority (top = highest).
                 m_mod = re.match(r"^enable\s+([a-zA-Z0-9_\-]+)\s*;", stripped)
                 if m_mod:
-                    self.mod = m_mod.group(1)
+                    mod_name = m_mod.group(1)
+                    if mod_name not in loaded_mods:
+                        loaded_mods.append(mod_name)
                     continue
 
                 # 2. Display scaler filter: 'interface scaler = <scaler_type>;'
@@ -192,6 +213,12 @@ class Orion2ConfigManager:
                     not stripped.startswith("# Startup display settings")):
                     self.extra_lines.append(line)
 
+            # Set loaded mods list (or empty if no enable lines were present)
+            if loaded_mods:
+                self.mods = loaded_mods
+            else:
+                self.mods = []
+
             # Match parsed width and height against resolution presets
             if width and height:
                 res_key = f"{width}x{height}"
@@ -224,9 +251,12 @@ class Orion2ConfigManager:
                 "# ------------------------------------------------------------\n"
             ]
 
-            # 1. Mod statement
-            if self.mod and self.mod != "None (Vanilla)":
-                lines.append(f"enable {self.mod};\n")
+            # 1. Mod statements in priority order (top line = highest priority)
+            active_mods = [m for m in self.mods if m and m != "None (Vanilla)"]
+            if active_mods:
+                lines.append("# Active mods (listed in priority order, highest priority first):\n")
+                for m in active_mods:
+                    lines.append(f"enable {m};\n")
             else:
                 lines.append("# enable v150i;\n")
 

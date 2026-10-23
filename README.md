@@ -6,6 +6,8 @@ A modern, dark-themed Python launcher for **Orion2Re** (Master of Orion II Redon
 
 ## Features
 
+Orion2Re Launcher provides an all-in-one graphical toolkit to download the modern engine, configure visual and network preferences, manage multiple mods with customizable load priority order, and launch Master of Orion II seamlessly.
+
 1. **Modern Dark Theme Interface**
    - Built with `customtkinter` featuring a clean dark aesthetic tailored for a modern gaming experience.
    - Sized compactly (~800px height) so the **PLAY** button is immediately visible without scrolling.
@@ -20,9 +22,15 @@ A modern, dark-themed Python launcher for **Orion2Re** (Master of Orion II Redon
    - **Automated Discovery**: Automatically inspects the latest successful build from the [starwindz/build_orion2re GitHub Actions workflow](https://github.com/starwindz/build_orion2re/actions/workflows/build.yml), which is forked from the build action at [Ajaja/build_orion2re](https://github.com/Ajaja/build_orion2re/actions/workflows/build.yml). Special thanks to **Ajaja** for creating and providing this automated build action!
    - **One-Click Installation**: Streams the latest release artifact and unpacks it directly into the project root directory with real-time progress percentage and byte transfer rate display.
 
-4. **`data/orion2re.cfg` Visual Configuration Editor**
+4. **Multi-Mod Management & Priority Load Ordering**
+   - **Multiple Mod Activation**: Enable multiple mods or add-on packages simultaneously rather than being restricted to a single choice.
+   - **Priority Order Control**: Interactive **Mod Priority & Multi-Mod Manager** dialog with dedicated **Move Up (▲)** and **Move Down (▼)** controls. In alignment with Orion2Re's VFS architecture, the top-most mod takes the highest precedence and overrides lower mods, while required dependencies (such as `v150`) are automatically activated by the engine.
+   - **Discovered & Custom Mods**: Automatically lists installed mods from `data/mods/` with an option to register custom mod identifiers on demand.
+   - **Quick Selector & Presets**: Instant quick combobox for 1-click single mod or vanilla switching, plus default presets (`v150i`, Vanilla).
+
+5. **`data/orion2re.cfg` Visual Configuration Editor**
    - Load, modify, and save engine settings easily via UI combo boxes and toggle switches:
-     - **Active Mod**: Automatically detects installed mods in `data/mods/` (`v150i`, `v150`, `v120`, `ice`, `melee`, `None (Vanilla)`, etc.).
+     - **Active Mods**: View current mod combinations or open the multi-mod priority organizer.
      - **Display Scaler**: `(Default)`, `hq2x`.
      - **Display Mode**: `Windowed` or `Fullscreen`.
      - **Resolution**: `640x480 (1x)`, `960x720 (1.5x)`, `1280x960 (2x)`, `1440x1080 (2.25x)`, `1920x1080 (FHD)`, etc.
@@ -31,13 +39,13 @@ A modern, dark-themed Python launcher for **Orion2Re** (Master of Orion II Redon
    - Buttons: `Save Settings` and `Reset Settings` (resets settings back to recommended defaults).
    - Generates clean, strictly validated syntax (semicolon-terminated statements) compatible with the Orion2Re configuration parser.
 
-5. **Synchronous Game Launch (Play Button)**
+6. **Synchronous Game Launch (Play Button)**
    - Located at the center bottom for immediate access (automatically saves configuration before launching).
    - Automatically minimizes the launcher before starting the game.
    - Launches `orion2re.exe` synchronously and waits for execution to complete.
    - Automatically restores and focuses the launcher window when the game exits.
 
-6. **Repository Cleanliness via `.gitignore`**
+7. **Repository Cleanliness via `.gitignore`**
    - Strictly ignores all original game binaries, assets, and folders (`orion2/`, `data/`, `*.exe`, `*.lbx`, etc.), ensuring only Python launcher files and configurations are tracked in git.
 
 ---

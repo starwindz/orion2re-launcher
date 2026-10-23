@@ -119,6 +119,30 @@ class TestOrion2Launcher(unittest.TestCase):
         self.assertEqual(cfg2.scaler, "(Default)")
         self.assertFalse(cfg2.fullscreen)
 
+    def test_multi_mod_priority_ordering(self):
+        """
+        Verifies that multiple mods can be configured and saved, and that load order
+        preserves priority sequence (top-most statement has highest priority).
+        """
+        cfg_path = os.path.join(self.data_dir, "orion2re.cfg")
+        cfg = Orion2ConfigManager(self.test_dir)
+        cfg.mods = ["custom_ui_mod", "ice_balance", "v150i"]
+        cfg.save()
+
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        pos1 = content.find("enable custom_ui_mod;")
+        pos2 = content.find("enable ice_balance;")
+        pos3 = content.find("enable v150i;")
+
+        self.assertTrue(0 <= pos1 < pos2 < pos3, "Mods must be ordered by priority in CFG")
+
+        # Reload into a new manager to verify list roundtrip
+        cfg2 = Orion2ConfigManager(self.test_dir)
+        self.assertEqual(cfg2.mods, ["custom_ui_mod", "ice_balance", "v150i"])
+        self.assertEqual(cfg2.mod, "custom_ui_mod")
+
     def test_downloader_build_discovery_starwindz(self):
         """
         Verifies that build discovery can connect to GitHub Actions API for starwindz/build_orion2re,

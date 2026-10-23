@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import subprocess
 import threading
@@ -62,6 +63,339 @@ ctk.deactivate_automatic_dpi_awareness()
 # Set modern dark visual theme
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
+
+
+class ModOrderDialog(ctk.CTkToplevel):
+    """
+    Dedicated modal dialog for managing multiple Orion2Re mods and their load priority order.
+    
+    Orion2Re Package Resolution Rule:
+    When enabling multiple mods, the engine loads packages in order where the top-most
+    mod has the highest precedence (overriding any assets/configs from lower mods).
+    Dependencies (such as v150 required by v150i) are activated automatically by the engine.
+    """
+
+    def __init__(self, parent, config_mgr, on_apply):
+        super().__init__(parent)
+        self.parent = parent
+        self.config_mgr = config_mgr
+        self.on_apply = on_apply
+
+        # Working copy of active mods list (ordered from highest to lowest priority)
+        self.active_mods = list(self.config_mgr.mods)
+
+        self.title("Orion2Re Mod Priority & Multi-Mod Manager")
+        self.geometry("520x480")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        # Center dialog window relative to parent launcher window
+        self.update_idletasks()
+        try:
+            px = parent.winfo_x() + (parent.winfo_width() - 520) // 2
+            py = parent.winfo_y() + (parent.winfo_height() - 480) // 2
+            self.geometry(f"520x480+{max(0, px)}+{max(0, py)}")
+        except Exception:
+            pass
+
+        self._build_ui()
+        self._refresh_lists()
+
+    def _build_ui(self):
+        """
+        Builds the dialog layout including priority list, reorder controls, and add mod inputs.
+        """
+        container = ctk.CTkFrame(self, fg_color="#0f172a", corner_radius=0)
+        container.pack(fill="both", expand=True, padx=12, pady=12)
+
+        # 1. Header explanation banner
+        header = ctk.CTkFrame(container, fg_color="#1e293b", corner_radius=6, border_width=1, border_color="#334155")
+        header.pack(fill="x", pady=(0, 10), ipady=4)
+
+        ctk.CTkLabel(
+            header,
+            text="MOD PRIORITY & MULTI-MOD LOAD ORDER",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#60a5fa"
+        ).pack(anchor="w", padx=10, pady=(4, 0))
+
+        ctk.CTkLabel(
+            header,
+            text="Top-most mod has highest precedence (overrides lower mods).\nDependencies (e.g. v150) are auto-loaded by the Orion2Re engine.",
+            font=ctk.CTkFont(size=10),
+            text_color="#94a3b8",
+            justify="left"
+        ).pack(anchor="w", padx=10, pady=(0, 4))
+
+        # 2. Active Mods section header
+        ctk.CTkLabel(
+            container,
+            text="Active Mods (Load Order - Top is Highest Priority):",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="#e2e8f0"
+        ).pack(anchor="w", pady=(0, 4))
+
+        # List frame holding Listbox and action buttons
+        list_frame = ctk.CTkFrame(container, fg_color="transparent")
+        list_frame.pack(fill="both", expand=True, pady=(0, 10))
+        list_frame.grid_columnconfigure(0, weight=1)
+        list_frame.grid_rowconfigure(0, weight=1)
+
+        # tk.Listbox for clear, fast selection and reordering
+        self.listbox = tk.Listbox(
+            list_frame,
+            bg="#1e293b",
+            fg="#f8fafc",
+            selectbackground="#2563eb",
+            selectforeground="#ffffff",
+            font=("Segoe UI", 10),
+            activestyle="none",
+            borderwidth=1,
+            relief="solid",
+            highlightthickness=0
+        )
+        self.listbox.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+
+        # Reordering control buttons column
+        order_btn_frame = ctk.CTkFrame(list_frame, fg_color="transparent")
+        order_btn_frame.grid(row=0, column=1, sticky="ns")
+
+        self.btn_up = ctk.CTkButton(
+            order_btn_frame,
+            text="▲ Move Up",
+            width=100,
+            height=26,
+            font=ctk.CTkFont(size=11),
+            fg_color="#334155",
+            hover_color="#475569",
+            command=self._move_up
+        )
+        self.btn_up.pack(pady=(0, 6))
+
+        self.btn_down = ctk.CTkButton(
+            order_btn_frame,
+            text="▼ Move Down",
+            width=100,
+            height=26,
+            font=ctk.CTkFont(size=11),
+            fg_color="#334155",
+            hover_color="#475569",
+            command=self._move_down
+        )
+        self.btn_down.pack(pady=(0, 6))
+
+        self.btn_remove = ctk.CTkButton(
+            order_btn_frame,
+            text="✖ Remove",
+            width=100,
+            height=26,
+            font=ctk.CTkFont(size=11),
+            fg_color="#7f1d1d",
+            hover_color="#991b1b",
+            command=self._remove_selected
+        )
+        self.btn_remove.pack(pady=(0, 6))
+
+        # 3. Add Mod Section (Discovered installed mods & custom identifier entry)
+        add_frame = ctk.CTkFrame(container, fg_color="#1e293b", corner_radius=6, border_width=1, border_color="#334155")
+        add_frame.pack(fill="x", pady=(0, 10), ipady=4)
+
+        # Row 1: Add discovered installed mods
+        row1 = ctk.CTkFrame(add_frame, fg_color="transparent")
+        row1.pack(fill="x", padx=10, pady=4)
+        ctk.CTkLabel(row1, text="Available Mods:", font=ctk.CTkFont(size=11, weight="bold"), width=110, anchor="w").pack(side="left")
+        self.avail_combo = ctk.CTkComboBox(row1, values=["(No inactive mods)"], state="readonly", height=24)
+        self.avail_combo.pack(side="left", fill="x", expand=True, padx=(4, 8))
+        self.btn_add = ctk.CTkButton(
+            row1,
+            text="➕ Add Mod",
+            width=90,
+            height=24,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#2563eb",
+            hover_color="#1d4ed8",
+            command=self._add_selected_avail
+        )
+        self.btn_add.pack(side="right")
+
+        # Row 2: Add custom mod identifier
+        row2 = ctk.CTkFrame(add_frame, fg_color="transparent")
+        row2.pack(fill="x", padx=10, pady=(0, 4))
+        ctk.CTkLabel(row2, text="Custom Mod ID:", font=ctk.CTkFont(size=11), width=110, anchor="w").pack(side="left")
+        self.custom_entry = ctk.CTkEntry(row2, placeholder_text="e.g. my_custom_mod", height=24, font=ctk.CTkFont(size=11))
+        self.custom_entry.pack(side="left", fill="x", expand=True, padx=(4, 8))
+        self.btn_add_custom = ctk.CTkButton(
+            row2,
+            text="➕ Add Custom",
+            width=90,
+            height=24,
+            font=ctk.CTkFont(size=11),
+            fg_color="#475569",
+            hover_color="#64748b",
+            command=self._add_custom
+        )
+        self.btn_add_custom.pack(side="right")
+
+        # 4. Bottom action bar
+        bottom_bar = ctk.CTkFrame(container, fg_color="transparent")
+        bottom_bar.pack(fill="x", pady=(4, 0))
+
+        self.btn_clear = ctk.CTkButton(
+            bottom_bar,
+            text="Vanilla (None)",
+            width=95,
+            height=26,
+            font=ctk.CTkFont(size=10),
+            fg_color="#334155",
+            hover_color="#475569",
+            command=self._clear_all
+        )
+        self.btn_clear.pack(side="left")
+
+        self.btn_default = ctk.CTkButton(
+            bottom_bar,
+            text="Default (v150i)",
+            width=95,
+            height=26,
+            font=ctk.CTkFont(size=10),
+            fg_color="#334155",
+            hover_color="#475569",
+            command=self._set_default
+        )
+        self.btn_default.pack(side="left", padx=6)
+
+        self.btn_apply = ctk.CTkButton(
+            bottom_bar,
+            text="Apply & Close",
+            width=110,
+            height=26,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#10b981",
+            hover_color="#059669",
+            command=self._apply
+        )
+        self.btn_apply.pack(side="right")
+
+        self.btn_cancel = ctk.CTkButton(
+            bottom_bar,
+            text="Cancel",
+            width=80,
+            height=26,
+            font=ctk.CTkFont(size=11),
+            fg_color="#475569",
+            hover_color="#64748b",
+            command=self.destroy
+        )
+        self.btn_cancel.pack(side="right", padx=(0, 6))
+
+    def _refresh_lists(self, selected_index=None):
+        """
+        Synchronizes listbox items and inactive mod combobox entries.
+        """
+        self.listbox.delete(0, "end")
+        for i, mod_id in enumerate(self.active_mods):
+            if i == 0:
+                badge = "[Highest Priority]"
+            else:
+                badge = f"[Priority #{i + 1}]"
+            self.listbox.insert("end", f" {i + 1}. {badge.ljust(18)}  {mod_id}")
+
+        if selected_index is not None and 0 <= selected_index < len(self.active_mods):
+            self.listbox.selection_set(selected_index)
+            self.listbox.activate(selected_index)
+
+        # Refresh inactive discovered mods
+        all_mods = [m for m in self.config_mgr.get_available_mods() if m != "None (Vanilla)"]
+        inactive = [m for m in all_mods if m not in self.active_mods]
+        if inactive:
+            self.avail_combo.configure(values=inactive, state="readonly")
+            self.avail_combo.set(inactive[0])
+            self.btn_add.configure(state="normal")
+        else:
+            self.avail_combo.configure(values=["(All installed mods are active)"], state="disabled")
+            self.avail_combo.set("(All installed mods are active)")
+            self.btn_add.configure(state="disabled")
+
+    def _move_up(self):
+        """
+        Moves the currently selected mod up by one position in priority.
+        """
+        sel = self.listbox.curselection()
+        if not sel or sel[0] == 0:
+            return
+        idx = sel[0]
+        self.active_mods[idx - 1], self.active_mods[idx] = self.active_mods[idx], self.active_mods[idx - 1]
+        self._refresh_lists(selected_index=idx - 1)
+
+    def _move_down(self):
+        """
+        Moves the currently selected mod down by one position in priority.
+        """
+        sel = self.listbox.curselection()
+        if not sel or sel[0] >= len(self.active_mods) - 1:
+            return
+        idx = sel[0]
+        self.active_mods[idx], self.active_mods[idx + 1] = self.active_mods[idx + 1], self.active_mods[idx]
+        self._refresh_lists(selected_index=idx + 1)
+
+    def _remove_selected(self):
+        """
+        Removes the selected mod from the active mods load list.
+        """
+        sel = self.listbox.curselection()
+        if not sel:
+            return
+        idx = sel[0]
+        del self.active_mods[idx]
+        new_sel = min(idx, len(self.active_mods) - 1) if self.active_mods else None
+        self._refresh_lists(selected_index=new_sel)
+
+    def _add_selected_avail(self):
+        """
+        Appends the selected inactive mod to the active load list.
+        """
+        choice = self.avail_combo.get()
+        if choice and choice not in self.active_mods and not choice.startswith("("):
+            self.active_mods.append(choice)
+            self._refresh_lists(selected_index=len(self.active_mods) - 1)
+
+    def _add_custom(self):
+        """
+        Sanitizes and appends a user-specified custom mod identifier to the load list.
+        """
+        raw = self.custom_entry.get().strip()
+        clean = re.sub(r"[^a-zA-Z0-9_\-]", "", raw)
+        if clean:
+            if clean not in self.active_mods:
+                self.active_mods.append(clean)
+                self.custom_entry.delete(0, "end")
+                self._refresh_lists(selected_index=len(self.active_mods) - 1)
+            else:
+                self.custom_entry.delete(0, "end")
+
+    def _clear_all(self):
+        """
+        Clears all active mods to run pure unmodded vanilla.
+        """
+        self.active_mods = []
+        self._refresh_lists()
+
+    def _set_default(self):
+        """
+        Resets active mod list to recommended single mod default ('v150i').
+        """
+        self.active_mods = ["v150i"]
+        self._refresh_lists(selected_index=0)
+
+    def _apply(self):
+        """
+        Applies changes to the configuration manager and invokes parent callback.
+        """
+        self.config_mgr.mods = list(self.active_mods)
+        if self.on_apply:
+            self.on_apply()
+        self.destroy()
 
 
 class Orion2Launcher(ctk.CTk):
@@ -377,12 +711,33 @@ class Orion2Launcher(ctk.CTk):
         grid.pack(fill="x", padx=14, pady=1)
         grid.grid_columnconfigure(1, weight=1)
 
-        # Option 1: Active Mod selection
-        ctk.CTkLabel(grid, text="Active Mod:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=0, column=0, sticky="w", pady=2)
-        mods = self.config_mgr.get_available_mods()
-        self.mod_combo = ctk.CTkComboBox(grid, values=mods, state="readonly", width=360, height=24)
-        self.mod_combo.set(self.config_mgr.mod if self.config_mgr.mod in mods else mods[0])
-        self.mod_combo.grid(row=0, column=1, sticky="ew", padx=(12, 0), pady=2)
+        # Option 1: Active Mod selection & Multi-Mod Manager
+        ctk.CTkLabel(grid, text="Active Mods:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=0, column=0, sticky="w", pady=2)
+        
+        mod_frame = ctk.CTkFrame(grid, fg_color="transparent")
+        mod_frame.grid(row=0, column=1, sticky="ew", padx=(12, 0), pady=2)
+        mod_frame.grid_columnconfigure(0, weight=1)
+
+        self.mod_combo = ctk.CTkComboBox(
+            mod_frame,
+            values=self._get_mod_combo_values(),
+            state="readonly",
+            height=24,
+            command=self._on_mod_combo_selected
+        )
+        self.mod_combo.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+
+        self.mod_order_btn = ctk.CTkButton(
+            mod_frame,
+            text="⚙ Multi-Mod & Order",
+            width=135,
+            height=24,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#3b82f6",
+            hover_color="#2563eb",
+            command=self.open_mod_manager
+        )
+        self.mod_order_btn.grid(row=0, column=1, sticky="e")
 
         # Option 2: Display Scaler selection ((Default), hq2x)
         ctk.CTkLabel(grid, text="Display Scaler:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=1, column=0, sticky="w", pady=2)
@@ -549,15 +904,57 @@ class Orion2Launcher(ctk.CTk):
             )
 
         # Dynamically refresh the active mods combobox list
-        cur_mod = self.mod_combo.get()
-        mods = self.config_mgr.get_available_mods()
-        self.mod_combo.configure(values=mods)
-        if cur_mod in mods:
-            self.mod_combo.set(cur_mod)
-        elif self.config_mgr.mod in mods:
-            self.mod_combo.set(self.config_mgr.mod)
+        self._refresh_mod_ui()
 
-    # ---------------- Configuration Handling ---------------- #
+    # ---------------- Configuration & Mod Handling ---------------- #
+    def open_mod_manager(self):
+        """
+        Opens the dedicated modal Mod Priority & Multi-Mod Manager dialog.
+        """
+        ModOrderDialog(self, self.config_mgr, on_apply=self._refresh_mod_ui)
+
+    def _get_mod_combo_values(self):
+        """
+        Builds the dropdown choices for the quick mod selector.
+        If multiple mods are active, includes a summary entry displaying the active load order.
+        """
+        values = []
+        if len(self.config_mgr.mods) > 1:
+            summary = ", ".join(self.config_mgr.mods) + f" ({len(self.config_mgr.mods)} mods)"
+            values.append(summary)
+
+        values.append("None (Vanilla)")
+        for m in self.config_mgr.get_available_mods():
+            if m not in values and m != "None (Vanilla)":
+                values.append(m)
+        return values
+
+    def _on_mod_combo_selected(self, choice):
+        """
+        Handles selection changes from the quick mod combobox.
+        """
+        if choice.endswith("mods)"):
+            return  # Already multi-mod selection
+        elif choice == "None (Vanilla)":
+            self.config_mgr.mods = []
+        else:
+            self.config_mgr.mods = [choice]
+        self._refresh_mod_ui()
+
+    def _refresh_mod_ui(self):
+        """
+        Updates the active mod combobox dropdown values and current selection.
+        """
+        values = self._get_mod_combo_values()
+        self.mod_combo.configure(values=values)
+        if len(self.config_mgr.mods) > 1:
+            display_text = ", ".join(self.config_mgr.mods) + f" ({len(self.config_mgr.mods)} mods)"
+            self.mod_combo.set(display_text)
+        elif len(self.config_mgr.mods) == 1:
+            self.mod_combo.set(self.config_mgr.mods[0])
+        else:
+            self.mod_combo.set("None (Vanilla)")
+
     def reset_settings(self):
         """
         Resets UI controls and data/orion2re.cfg to recommended defaults.
@@ -565,8 +962,7 @@ class Orion2Launcher(ctk.CTk):
         self.config_mgr.reset_defaults()
 
         # Refresh UI controls to match default configuration values
-        mods = self.config_mgr.get_available_mods()
-        self.mod_combo.set(self.config_mgr.mod if self.config_mgr.mod in mods else mods[0])
+        self._refresh_mod_ui()
         self.scaler_combo.set(self.config_mgr.scaler)
         self.display_combo.set("Windowed")
         self.res_combo.set(self.config_mgr.resolution)
@@ -583,7 +979,13 @@ class Orion2Launcher(ctk.CTk):
         Returns:
             bool: True on successful write, False otherwise.
         """
-        self.config_mgr.mod = self.mod_combo.get()
+        cur_mod = self.mod_combo.get()
+        if not cur_mod.endswith("mods)"):
+            if cur_mod == "None (Vanilla)":
+                self.config_mgr.mods = []
+            else:
+                self.config_mgr.mods = [cur_mod]
+
         self.config_mgr.scaler = self.scaler_combo.get()
         self.config_mgr.fullscreen = (self.display_combo.get() == "Fullscreen")
         self.config_mgr.resolution = self.res_combo.get()
