@@ -23,8 +23,8 @@ Orion2Re Launcher provides an all-in-one graphical toolkit to download the moder
 3. **Orion2Re Automated Downloader & Updater**
    - **About Orion2Re**: **Orion2Re** (Master of Orion II Redone) is an open-source engine reimplementation and modern source port for the legendary 4X strategy classic *Master of Orion II: Battle at Antares*. The official source code repository is hosted on GitHub at [orion2re/orion2re](https://github.com/orion2re/orion2re), with technical documentation available at the [Orion2Re Documentation](https://moo2mod.com/redone/doc/index.html).
    - **Special Thanks**: Our deepest gratitude to the creators, developers, and contributors of the **Orion2Re** project for their tireless dedication, incredible reverse-engineering achievements, and passion in preserving and revitalizing Master of Orion II for modern hardware and systems.
-   - **Automated Discovery**: Automatically inspects the latest successful build from the [starwindz/build_orion2re GitHub Actions workflow](https://github.com/starwindz/build_orion2re/actions/workflows/build.yml), which is forked from the build action at [Ajaja/build_orion2re](https://github.com/Ajaja/build_orion2re/actions/workflows/build.yml). Special thanks to **Ajaja** for creating and providing this automated build action!
-   - **One-Click Installation**: Streams the latest release artifact and unpacks it directly into the project root directory with real-time progress percentage and byte transfer rate display. User-configured active mods and settings are preserved across updates.
+   - **Dual Build Download**: Downloads both the latest Official release (`orion2re-win-win32.zip` extracted to `orion2re/official`) and the latest Nightly CI build (`orion2re-win-win32-main.zip` extracted to `orion2re/nightly`).
+   - **Unauthenticated Download & Extraction**: Downloads artifacts directly via GitHub Releases and `nightly.link` without requiring any GitHub login or authentication. The launcher extracts engine binaries (`orion2re.exe`) and mod assets (`data/mods/`) with real-time progress percentage, seamlessly preserving existing user configurations (`data/orion2re.cfg`).
 
 4. **Multi-Mod Management & Priority Load Ordering**
    - **Multiple Mod Activation**: Enable multiple mods or add-on packages simultaneously rather than being restricted to a single choice.
@@ -36,7 +36,11 @@ Orion2Re Launcher provides an all-in-one graphical toolkit to download the moder
      <img src="screenshots/mod_manager.png" alt="Orion2Re Mod Priority & Multi-Mod Manager" width="460">
    </p>
 
-5. **`data/orion2re.cfg` Visual Configuration Editor**
+5. **Engine & Display Settings Editor**
+   - **Engine Selector**: Choose between **Official** and **Nightly** engine builds via a dedicated dropdown:
+     - **Official Engine**: Display Mode and Resolution controls are safely disabled and saved as comments (`# ` prefix in `data/orion2re.cfg`).
+     - **Nightly Engine**: Custom display scaler, windowed/fullscreen presentation, and arbitrary resolution presets are fully active.
+   - **Settings Compatibility**: Parses and loads configuration values even when prefixed with `# ` comments.
    - Load, modify, and save engine settings easily via UI combo boxes and toggle switches:
      - **Active Mods**: View current mod combinations or open the multi-mod priority organizer.
      - **Display Scaler**: `(Default)`, `hq2x`.
@@ -52,7 +56,9 @@ Orion2Re Launcher provides an all-in-one graphical toolkit to download the moder
    - Generates clean, strictly validated syntax (semicolon-terminated statements) compatible with the Orion2Re configuration parser.
 
 6. **Synchronous Game Launch (Play Button)**
-   - Located at the center bottom for immediate access (automatically saves configuration before launching).
+   - Located at the center bottom for immediate access.
+   - Automatically cleans `data/mods/` and deploys all files from the selected engine (`orion2re/official` or `orion2re/nightly`) to the root game directory prior to launch, while preserving existing `data/orion2re.cfg`.
+   - Automatically saves current configuration before launching.
    - Automatically minimizes the launcher before starting the game.
    - Launches `orion2re.exe` synchronously and waits for execution to complete.
    - Automatically restores and focuses the launcher window when the game exits.
@@ -88,7 +94,7 @@ orion2re-launcher/
 ## Getting Started
 
 > [!IMPORTANT]
-> **Setup**: Please copy `launcher.exe` into the folder where your original Master of Orion II game files are installed. After launching the application, click the **"Download Orion2Re"** button to automatically download and install the latest engine build (if the launcher has never been run before, the download will begin automatically upon launch).
+> **Setup**: Please copy `launcher.exe` into the folder where your original Master of Orion II game files are installed. After launching the application, click the **"Download Orion2Re (Latest Official and Nightly Build)"** button to automatically download and install both official and nightly engine builds (if the launcher has never been run before, the download will begin automatically upon launch).
 
 ### Option 1: Standalone Executable (No Python Required)
 Run `build.bat` once to compile `launcher.exe`. You can then copy and launch `launcher.exe` directly in your original Master of Orion II folder on any Windows PC even without Python installed.

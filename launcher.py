@@ -7,6 +7,8 @@ import webbrowser
 import tkinter as tk
 from tkinter import messagebox
 
+APP_VERSION = "v1.03"
+
 def get_app_root():
     """
     Determines the real application root directory.
@@ -412,7 +414,7 @@ class Orion2Launcher(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Master of Orion II - Orion2Re Launcher: v1.02")
+        self.title(f"Master of Orion II - Orion2Re Launcher: {APP_VERSION}")
 
         # Resolve real root directory (handles PyInstaller bundle vs Python script)
         self.root_dir = get_app_root()
@@ -532,10 +534,12 @@ class Orion2Launcher(ctk.CTk):
 
     def _build_header(self, parent):
         """
-        Renders the top branding header panel with title, subtitle, and author credit.
+        Renders the top branding header panel with title, subtitle, documentation link,
+        and author credit link.
         """
+        # Height reduced by ~10% to allocate more vertical prominence to the launch control
         header_frame = ctk.CTkFrame(parent, fg_color="#1e293b", corner_radius=8, border_width=1, border_color="#334155")
-        header_frame.pack(fill="x", pady=(0, 6), ipady=2)
+        header_frame.pack(fill="x", pady=(0, 5), ipady=0)
 
         title_lbl = ctk.CTkLabel(
             header_frame,
@@ -543,7 +547,7 @@ class Orion2Launcher(ctk.CTk):
             font=ctk.CTkFont(size=19, weight="bold"),
             text_color="#60a5fa"
         )
-        title_lbl.pack(pady=(2, 0))
+        title_lbl.pack(pady=(1, 0))
 
         sub_lbl = ctk.CTkLabel(
             header_frame,
@@ -553,15 +557,15 @@ class Orion2Launcher(ctk.CTk):
         )
         sub_lbl.pack(pady=(0, 0))
 
-        # Bottom row inside header: Documentation link on the left, Author credit on the right
+        # Bottom row inside header: Orion2 Redone Project link on the left, Author credit link on the right
         bottom_row = ctk.CTkFrame(header_frame, fg_color="transparent")
-        bottom_row.pack(fill="x", padx=10, pady=(0, 2))
+        bottom_row.pack(fill="x", padx=10, pady=(0, 1))
 
-        # Documentation link (opens https://moo2mod.com/redone/doc/index.html)
+        # Orion2 Redone Project link (opens https://moo2mod.com/redone/doc/index.html)
         doc_url = "https://moo2mod.com/redone/doc/index.html"
         doc_lbl = ctk.CTkLabel(
             bottom_row,
-            text="🌐 Documentation",
+            text="Orion2 Redone Project",
             font=ctk.CTkFont(size=10, underline=True),
             text_color="#38bdf8",
             cursor="hand2"
@@ -571,14 +575,19 @@ class Orion2Launcher(ctk.CTk):
         doc_lbl.bind("<Enter>", lambda e: doc_lbl.configure(text_color="#93c5fd"))
         doc_lbl.bind("<Leave>", lambda e: doc_lbl.configure(text_color="#38bdf8"))
 
-        # Author credit label placed at the bottom-right corner of the top panel
+        # Author credit hyperlink (opens https://github.com/starwindz/orion2re-launcher)
+        repo_url = "https://github.com/starwindz/orion2re-launcher"
         credit_lbl = ctk.CTkLabel(
             bottom_row,
             text="Launcher created by starwindz",
-            font=ctk.CTkFont(size=10),
-            text_color="#64748b"
+            font=ctk.CTkFont(size=10, underline=True),
+            text_color="#64748b",
+            cursor="hand2"
         )
         credit_lbl.pack(side="right")
+        credit_lbl.bind("<Button-1>", lambda e: webbrowser.open_new_tab(repo_url))
+        credit_lbl.bind("<Enter>", lambda e: credit_lbl.configure(text_color="#94a3b8"))
+        credit_lbl.bind("<Leave>", lambda e: credit_lbl.configure(text_color="#64748b"))
 
     def _build_status_card(self, parent):
         """
@@ -668,21 +677,9 @@ class Orion2Launcher(ctk.CTk):
         )
         title.pack(side="left")
 
-        about_btn = ctk.CTkButton(
-            title_row,
-            text="About",
-            width=58,
-            height=20,
-            font=ctk.CTkFont(size=10),
-            fg_color="#334155",
-            hover_color="#475569",
-            command=self.show_build_about
-        )
-        about_btn.pack(side="right")
-
         desc = ctk.CTkLabel(
             card,
-            text="Fetches the latest Orion2Re build from GitHub Actions.",
+            text="Fetches the official release and nightly CI build from GitHub.",
             font=ctk.CTkFont(size=11),
             text_color="#94a3b8"
         )
@@ -693,7 +690,7 @@ class Orion2Launcher(ctk.CTk):
 
         self.download_btn = ctk.CTkButton(
             btn_row,
-            text="Download Orion2Re (Latest Build)",
+            text="Download Orion2Re (Latest Official and Nightly Build)",
             font=ctk.CTkFont(size=12, weight="bold"),
             height=30,
             fg_color="#2563eb",
@@ -735,7 +732,7 @@ class Orion2Launcher(ctk.CTk):
 
         title = ctk.CTkLabel(
             top_row,
-            text="Engine & Display Settings (data/orion2re.cfg)",
+            text="Engine & Display Settings",
             font=ctk.CTkFont(size=13, weight="bold"),
             text_color="#f8fafc"
         )
@@ -746,11 +743,24 @@ class Orion2Launcher(ctk.CTk):
         grid.pack(fill="x", padx=14, pady=1)
         grid.grid_columnconfigure(1, weight=1)
 
+        # Option 0: Engine selection (Official / Nightly)
+        ctk.CTkLabel(grid, text="Engine:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=0, column=0, sticky="w", pady=2)
+        self.engine_combo = ctk.CTkComboBox(
+            grid,
+            values=["Official", "Nightly"],
+            state="readonly",
+            width=360,
+            height=24,
+            command=self._on_engine_selected
+        )
+        self.engine_combo.set(self.config_mgr.engine)
+        self.engine_combo.grid(row=0, column=1, sticky="ew", padx=(12, 0), pady=2)
+
         # Option 1: Active Mod selection & Multi-Mod Manager
-        ctk.CTkLabel(grid, text="Active Mods:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=0, column=0, sticky="w", pady=2)
+        ctk.CTkLabel(grid, text="Active Mods:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=1, column=0, sticky="w", pady=2)
         
         mod_frame = ctk.CTkFrame(grid, fg_color="transparent")
-        mod_frame.grid(row=0, column=1, sticky="ew", padx=(12, 0), pady=2)
+        mod_frame.grid(row=1, column=1, sticky="ew", padx=(12, 0), pady=2)
         mod_frame.grid_columnconfigure(0, weight=1)
 
         self.mod_combo = ctk.CTkComboBox(
@@ -775,37 +785,40 @@ class Orion2Launcher(ctk.CTk):
         self.mod_order_btn.grid(row=0, column=1, sticky="e")
 
         # Option 2: Display Scaler selection ((Default), hq2x)
-        ctk.CTkLabel(grid, text="Display Scaler:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=1, column=0, sticky="w", pady=2)
+        ctk.CTkLabel(grid, text="Display Scaler:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=2, column=0, sticky="w", pady=2)
         self.scaler_combo = ctk.CTkComboBox(grid, values=self.config_mgr.SCALER_OPTIONS, state="readonly", width=360, height=24)
         self.scaler_combo.set(self.config_mgr.scaler)
-        self.scaler_combo.grid(row=1, column=1, sticky="ew", padx=(12, 0), pady=2)
+        self.scaler_combo.grid(row=2, column=1, sticky="ew", padx=(12, 0), pady=2)
 
         # Option 3: Display Mode (Windowed / Fullscreen)
-        ctk.CTkLabel(grid, text="Display Mode:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=2, column=0, sticky="w", pady=2)
+        ctk.CTkLabel(grid, text="Display Mode:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=3, column=0, sticky="w", pady=2)
         self.display_combo = ctk.CTkComboBox(grid, values=self.config_mgr.DISPLAY_MODES, state="readonly", width=360, height=24)
         self.display_combo.set("Fullscreen" if self.config_mgr.fullscreen else "Windowed")
-        self.display_combo.grid(row=2, column=1, sticky="ew", padx=(12, 0), pady=2)
+        self.display_combo.grid(row=3, column=1, sticky="ew", padx=(12, 0), pady=2)
 
         # Option 4: Resolution preset selection
-        ctk.CTkLabel(grid, text="Resolution:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=3, column=0, sticky="w", pady=2)
+        ctk.CTkLabel(grid, text="Resolution:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=4, column=0, sticky="w", pady=2)
         self.res_combo = ctk.CTkComboBox(grid, values=self.config_mgr.RESOLUTION_PRESETS, state="readonly", width=360, height=24)
         self.res_combo.set(self.config_mgr.resolution)
-        self.res_combo.grid(row=3, column=1, sticky="ew", padx=(12, 0), pady=2)
+        self.res_combo.grid(row=4, column=1, sticky="ew", padx=(12, 0), pady=2)
+
+        # Apply disabled/readonly state based on initial engine selection
+        self._apply_engine_ui_state(self.config_mgr.engine)
 
         # Option 5: Vertical Synchronization switch
-        ctk.CTkLabel(grid, text="VSync:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=4, column=0, sticky="w", pady=2)
+        ctk.CTkLabel(grid, text="VSync:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=5, column=0, sticky="w", pady=2)
         self.vsync_switch = ctk.CTkSwitch(grid, text="Enable VSync", onvalue=True, offvalue=False, font=ctk.CTkFont(size=11))
         if self.config_mgr.vsync:
             self.vsync_switch.select()
         else:
             self.vsync_switch.deselect()
-        self.vsync_switch.grid(row=4, column=1, sticky="w", padx=(12, 0), pady=2)
+        self.vsync_switch.grid(row=5, column=1, sticky="w", padx=(12, 0), pady=2)
 
         # Option 6: Multiplayer router host address
-        ctk.CTkLabel(grid, text="Router Address:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=5, column=0, sticky="w", pady=2)
+        ctk.CTkLabel(grid, text="Router Address:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=6, column=0, sticky="w", pady=2)
         self.router_entry = ctk.CTkEntry(grid, width=360, height=24, font=ctk.CTkFont(size=11))
         self.router_entry.insert(0, self.config_mgr.router or self.config_mgr.DEFAULT_ROUTER)
-        self.router_entry.grid(row=5, column=1, sticky="ew", padx=(12, 0), pady=2)
+        self.router_entry.grid(row=6, column=1, sticky="ew", padx=(12, 0), pady=2)
 
         # Action Buttons row: View Orion2Re.cfg, Refresh Settings, Reset Settings, Save Settings
         btn_frame = ctk.CTkFrame(card, fg_color="transparent")
@@ -863,20 +876,21 @@ class Orion2Launcher(ctk.CTk):
         """
         Renders the bottom anchored launch control section with prominent PLAY button
         and version indicator at the bottom-right corner.
+        Height and padding adjusted to provide bottom spacing while maintaining overall window height.
         """
-        bottom_bar = ctk.CTkFrame(parent, fg_color="#0b1120", corner_radius=0, height=54)
+        bottom_bar = ctk.CTkFrame(parent, fg_color="#0b1120", corner_radius=0, height=60)
         bottom_bar.pack(side="bottom", fill="x")
 
         center_frame = ctk.CTkFrame(bottom_bar, fg_color="transparent")
-        center_frame.pack(expand=True, pady=6)
+        center_frame.pack(expand=True, pady=(4, 10))
 
         self.play_btn = ctk.CTkButton(
             center_frame,
             text="▶   P L A Y",
             font=ctk.CTkFont(size=17, weight="bold"),
             width=280,
-            height=38,
-            corner_radius=19,
+            height=41,
+            corner_radius=20,
             fg_color="#2563eb",
             hover_color="#1d4ed8",
             command=self.on_play_clicked
@@ -886,11 +900,11 @@ class Orion2Launcher(ctk.CTk):
         # Version label displayed at the bottom-right corner of the launcher
         ver_lbl = ctk.CTkLabel(
             bottom_bar,
-            text="Ver.1.02",
+            text=f"Ver.{APP_VERSION.lstrip('v')}",
             font=ctk.CTkFont(size=10),
             text_color="#64748b"
         )
-        ver_lbl.place(relx=1.0, rely=0.7, anchor="e", x=-14)
+        ver_lbl.place(relx=1.0, rely=0.5, anchor="e", x=-14)
 
     # ---------------- Environment & Status Checks ---------------- #
     def has_original_moo2_files(self):
@@ -916,12 +930,17 @@ class Orion2Launcher(ctk.CTk):
 
     def has_orion2re_exe(self):
         """
-        Checks if orion2re.exe exists in the application root directory.
+        Checks if orion2re.exe exists in the application root directory,
+        or in the selected engine's distribution folder (orion2re/official or orion2re/nightly).
         
         Returns:
             bool: True if the engine executable exists, False otherwise.
         """
-        return os.path.isfile(self.exe_path)
+        if os.path.isfile(self.exe_path):
+            return True
+        engine_key = "official" if getattr(self, "engine_combo", None) and self.engine_combo.get().lower() == "official" else "nightly"
+        engine_exe = os.path.join(self.root_dir, "orion2re", engine_key, "orion2re.exe")
+        return os.path.isfile(engine_exe)
 
     def refresh_environment_status(self):
         """
@@ -949,7 +968,10 @@ class Orion2Launcher(ctk.CTk):
 
         # Update Orion2Re engine executable status row
         if has_exe:
-            size_mb = os.path.getsize(self.exe_path) / (1024 * 1024)
+            target = self.exe_path if os.path.isfile(self.exe_path) else os.path.join(
+                self.root_dir, "orion2re", "official" if getattr(self, "engine_combo", None) and self.engine_combo.get().lower() == "official" else "nightly", "orion2re.exe"
+            )
+            size_mb = os.path.getsize(target) / (1024 * 1024) if os.path.isfile(target) else 0.0
             self.exe_icon_lbl.configure(text="✅")
             self.exe_status_lbl.configure(
                 text=f"Orion2Re executable ready (orion2re.exe - {size_mb:.1f} MB)",
@@ -966,6 +988,29 @@ class Orion2Launcher(ctk.CTk):
         self._refresh_mod_ui()
 
     # ---------------- Configuration & Mod Handling ---------------- #
+    def _apply_engine_ui_state(self, engine):
+        """
+        Enables or disables Display Mode and Resolution controls based on selected engine.
+        Official engine disables Display Mode and Resolution; Nightly enables them.
+        """
+        if not hasattr(self, "display_combo") or not hasattr(self, "res_combo"):
+            return
+        if engine == "Official":
+            self.display_combo.configure(state="disabled")
+            self.res_combo.configure(state="disabled")
+        else:
+            self.display_combo.configure(state="readonly")
+            self.res_combo.configure(state="readonly")
+
+    def _on_engine_selected(self, choice):
+        """
+        Handles engine selection change between Official and Nightly.
+        """
+        self.config_mgr.engine = choice
+        self._apply_engine_ui_state(choice)
+        self._refresh_mod_ui()
+        self.refresh_environment_status()
+
     def open_mod_manager(self):
         """
         Opens the dedicated modal Mod Priority & Multi-Mod Manager dialog.
@@ -1021,6 +1066,8 @@ class Orion2Launcher(ctk.CTk):
         self.config_mgr.reset_defaults()
 
         # Refresh UI controls to match default configuration values
+        self.engine_combo.set(self.config_mgr.engine)
+        self._apply_engine_ui_state(self.config_mgr.engine)
         self._refresh_mod_ui()
         self.scaler_combo.set(self.config_mgr.scaler)
         self.display_combo.set("Windowed")
@@ -1036,6 +1083,8 @@ class Orion2Launcher(ctk.CTk):
         Reloads configuration from 'data/orion2re.cfg' and synchronizes UI controls.
         """
         success = self.config_mgr.load()
+        self.engine_combo.set(self.config_mgr.engine)
+        self._apply_engine_ui_state(self.config_mgr.engine)
         self._refresh_mod_ui()
         self.scaler_combo.set(self.config_mgr.scaler)
         self.display_combo.set("Fullscreen" if self.config_mgr.fullscreen else "Windowed")
@@ -1078,6 +1127,7 @@ class Orion2Launcher(ctk.CTk):
         Returns:
             bool: True on successful write, False otherwise.
         """
+        self.config_mgr.engine = self.engine_combo.get()
         cur_mod = self.mod_combo.get()
         if not cur_mod.endswith("mods)"):
             if cur_mod == "None (Vanilla)":
@@ -1096,20 +1146,47 @@ class Orion2Launcher(ctk.CTk):
             self.download_status_lbl.configure(text="Settings saved to data/orion2re.cfg successfully.")
         return success
 
-    # ---------------- Download Handling ---------------- #
-    def show_build_about(self):
+    def _deploy_engine(self, engine_name):
         """
-        Displays acknowledgment and source repository information regarding the automated build action.
+        Deploys the specified Orion2Re engine build (Official or Nightly) into the root folder:
+        1. Deletes all files in data/mods/ (and data/modes/ if present).
+        2. Copies all files and folders from orion2re/<engine> to root, strictly preserving existing data/orion2re.cfg.
         """
-        messagebox.showinfo(
-            "About Orion2Re Builds",
-            "This launcher downloads automated builds from:\n"
-            "https://github.com/starwindz/build_orion2re/actions/workflows/build.yml\n\n"
-            "Forked from:\n"
-            "https://github.com/Ajaja/build_orion2re/actions/workflows/build.yml\n\n"
-            "Special thanks to Ajaja for creating and providing the original automated build actions!"
-        )
+        import shutil
+        engine_key = "official" if engine_name.lower() == "official" else "nightly"
+        source_dir = os.path.join(self.root_dir, "orion2re", engine_key)
+        if not os.path.isdir(source_dir):
+            raise FileNotFoundError(f"Engine folder '{source_dir}' does not exist.")
 
+        # 1. Clean data/mods/ (and data/modes/)
+        mods_dir = os.path.join(self.root_dir, "data", "mods")
+        modes_dir = os.path.join(self.root_dir, "data", "modes")
+        for target_d in (mods_dir, modes_dir):
+            if os.path.isdir(target_d):
+                for item in os.listdir(target_d):
+                    item_path = os.path.join(target_d, item)
+                    try:
+                        if os.path.isfile(item_path) or os.path.islink(item_path):
+                            os.unlink(item_path)
+                        elif os.path.isdir(item_path):
+                            shutil.rmtree(item_path)
+                    except Exception as e:
+                        print(f"[Launcher] Error cleaning {item_path}: {e}")
+
+        # 2. Copy all files from orion2re/<engine_key> into root_dir
+        for root, dirs, files in os.walk(source_dir):
+            rel_path = os.path.relpath(root, source_dir)
+            dest_dir = os.path.join(self.root_dir, rel_path) if rel_path != "." else self.root_dir
+            os.makedirs(dest_dir, exist_ok=True)
+            for f in files:
+                # Strictly preserve user's data/orion2re.cfg if already present in root
+                if rel_path.replace("\\", "/").lower() == "data" and f.lower() == "orion2re.cfg" and os.path.isfile(os.path.join(dest_dir, f)):
+                    continue
+                src_file = os.path.join(root, f)
+                dest_file = os.path.join(dest_dir, f)
+                shutil.copy2(src_file, dest_file)
+
+    # ---------------- Download Handling ---------------- #
     def start_download(self):
         """
         Initiates asynchronous build download in a background thread to prevent UI freezing.
@@ -1118,19 +1195,20 @@ class Orion2Launcher(ctk.CTk):
             return
 
         self.is_downloading = True
-        self.download_btn.configure(state="disabled", text="Downloading build...")
+        self.download_btn.configure(state="disabled", text="Downloading builds...")
         self.prog_bar.set(0.0)
-        self.download_status_lbl.configure(text="Searching for latest build on GitHub...")
+        self.download_status_lbl.configure(text="Searching for latest releases and nightly builds on GitHub...")
 
         threading.Thread(target=self._download_worker, daemon=True).start()
 
     def _download_worker(self):
         """
-        Worker thread for discovering, streaming, and extracting the latest Orion2Re build.
+        Worker thread for downloading and extracting both Official and Nightly Orion2Re builds.
         Preserves user-configured mods and settings across updates.
         """
         try:
             # Preserve user's current active mod and configuration state before download/extract
+            saved_engine = self.config_mgr.engine
             saved_mods = list(self.config_mgr.mods)
             saved_scaler = self.config_mgr.scaler
             saved_fullscreen = self.config_mgr.fullscreen
@@ -1144,9 +1222,7 @@ class Orion2Launcher(ctk.CTk):
             def on_progress(cur, total):
                 if total > 0:
                     pct = cur / total
-                    cur_mb = cur / (1024 * 1024)
-                    tot_mb = total / (1024 * 1024)
-                    text = f"Downloading: {cur_mb:.2f} MB / {tot_mb:.2f} MB ({int(pct * 100)}%)"
+                    text = f"Downloading builds... ({int(pct * 100)}%)"
                 else:
                     text = f"Downloading: {cur / (1024 * 1024):.2f} MB"
                 self.after(0, lambda: [
@@ -1162,12 +1238,13 @@ class Orion2Launcher(ctk.CTk):
             run_id, artifact = downloader.download_and_extract()
 
             def on_success():
-                self.download_btn.configure(state="normal", text="Download Orion2Re (Latest Build)")
-                self.download_status_lbl.configure(text=f"Installed: {artifact}")
+                self.download_btn.configure(state="normal", text="Download Orion2Re (Latest Official and Nightly Build)")
+                self.download_status_lbl.configure(text="Official and Nightly builds installed successfully!")
                 self.prog_bar.set(1.0)
                 self.is_downloading = False
 
                 # Restore and re-save user configuration so mods and display settings are never reset
+                self.config_mgr.engine = saved_engine
                 self.config_mgr.mods = saved_mods
                 self.config_mgr.scaler = saved_scaler
                 self.config_mgr.fullscreen = saved_fullscreen
@@ -1176,16 +1253,25 @@ class Orion2Launcher(ctk.CTk):
                 self.config_mgr.router = saved_router
                 self.config_mgr.save()
 
+                # Deploy the selected engine into root
+                try:
+                    self._deploy_engine(saved_engine)
+                except Exception as e:
+                    print(f"[Launcher] Error deploying {saved_engine} after download: {e}")
+
                 self.refresh_environment_status()
                 messagebox.showinfo(
                     "Download Completed",
-                    f"Orion2Re latest build has been installed successfully!\n\nArtifact: {artifact}\n\nYour active mods and configuration settings have been preserved."
+                    "Orion2Re Official and Nightly builds have been downloaded and installed successfully!\n\n"
+                    "• Official: orion2re/official/\n"
+                    "• Nightly: orion2re/nightly/\n\n"
+                    "Your active mods and configuration settings have been preserved."
                 )
 
             self.after(0, on_success)
         except Exception as e:
             def on_error(err_msg):
-                self.download_btn.configure(state="normal", text="Download Orion2Re (Latest Build)")
+                self.download_btn.configure(state="normal", text="Download Orion2Re (Latest Official and Nightly Build)")
                 self.download_status_lbl.configure(text=f"Error: {err_msg}")
                 self.prog_bar.set(0.0)
                 self.is_downloading = False
@@ -1197,8 +1283,8 @@ class Orion2Launcher(ctk.CTk):
     def on_play_clicked(self):
         """
         Handles user click on the PLAY button.
-        Verifies asset readiness, auto-saves settings, minimizes the launcher,
-        and launches orion2re.exe synchronously.
+        Verifies asset readiness, deploys the selected engine build, auto-saves settings,
+        minimizes the launcher, and launches orion2re.exe synchronously.
         """
         if self.is_game_running:
             return
@@ -1214,14 +1300,25 @@ class Orion2Launcher(ctk.CTk):
             if not res:
                 return
 
-        # Check engine binary readiness
-        if not self.has_orion2re_exe():
-            messagebox.showerror(
-                "Executable Missing",
-                "orion2re.exe was not found.\n"
-                "Please click 'Download Orion2Re' first to install the game engine."
-            )
-            return
+        engine_choice = self.engine_combo.get()
+        engine_key = "official" if engine_choice.lower() == "official" else "nightly"
+        source_dir = os.path.join(self.root_dir, "orion2re", engine_key)
+
+        # Deploy selected engine to root folder (deleting data/mods files and copying engine files)
+        if os.path.isdir(source_dir) and os.path.isfile(os.path.join(source_dir, "orion2re.exe")):
+            try:
+                self._deploy_engine(engine_choice)
+            except Exception as e:
+                messagebox.showerror("Engine Deployment Error", f"Failed to deploy {engine_choice} engine:\n{e}")
+                return
+        else:
+            if not self.has_orion2re_exe():
+                messagebox.showerror(
+                    "Executable Missing",
+                    f"The {engine_choice} engine build was not found.\n"
+                    "Please click 'Download Orion2Re (Latest Official and Nightly Build)' first to install."
+                )
+                return
 
         # Auto-save configuration before executing the game
         self.save_settings()

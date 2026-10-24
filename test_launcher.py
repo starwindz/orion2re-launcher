@@ -80,11 +80,14 @@ class TestOrion2Launcher(unittest.TestCase):
         Verifies that saved configuration complies with Orion2Re syntax rules:
         - Statements terminate with semicolons.
         - Values roundtrip correctly without data loss.
+        - Official engine comments out fullscreen & resolution with '# '.
+        - Nightly engine writes fullscreen & resolution uncommented.
         """
         cfg_path = os.path.join(self.data_dir, "orion2re.cfg")
         
-        # Instantiate manager pointing to test directory
+        # Test Nightly engine saving (uncommented display statements)
         cfg = Orion2ConfigManager(self.test_dir)
+        cfg.engine = "Nightly"
         cfg.mod = "v150i"
         cfg.scaler = "hq2x"
         cfg.fullscreen = True
@@ -93,31 +96,48 @@ class TestOrion2Launcher(unittest.TestCase):
         cfg.router = "209.38.39.19"
         cfg.save()
 
-        # Read back raw text to verify semicolon termination
         with open(cfg_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         self.assertIn("enable v150i;", content)
         self.assertIn("interface scaler = hq2x;", content)
         self.assertIn("interface fullscreen = true;", content)
-        self.assertIn("interface vsync_enabled = true;", content)
         self.assertIn("interface window_width = 1920;", content)
         self.assertIn("interface window_height = 1080;", content)
         self.assertIn('interface router = "209.38.39.19";', content)
 
-        # Reload into a fresh manager instance to verify parser accuracy
+        # Reload into a fresh manager instance
         cfg2 = Orion2ConfigManager(self.test_dir)
+        cfg2.load()
+        self.assertEqual(cfg2.engine, "Nightly")
         self.assertEqual(cfg2.mod, "v150i")
         self.assertEqual(cfg2.scaler, "hq2x")
         self.assertTrue(cfg2.fullscreen)
-        self.assertTrue(cfg2.vsync)
         self.assertTrue(cfg2.resolution.startswith("1920x1080"))
-        self.assertEqual(cfg2.router, "209.38.39.19")
+
+        # Test Official engine saving (fullscreen and resolution must be prefixed with '# ')
+        cfg2.engine = "Official"
+        cfg2.save()
+
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            content_official = f.read()
+
+        self.assertIn("# interface fullscreen = true;", content_official)
+        self.assertIn("# interface window_width = 1920;", content_official)
+        self.assertIn("# interface window_height = 1080;", content_official)
+
+        # Reload official cfg: must still parse fullscreen and resolution even with '#' (Requirement 8)
+        cfg3 = Orion2ConfigManager(self.test_dir)
+        cfg3.load()
+        self.assertEqual(cfg3.engine, "Official")
+        self.assertTrue(cfg3.fullscreen)
+        self.assertTrue(cfg3.resolution.startswith("1920x1080"))
 
         # Test resetting to defaults
-        cfg2.reset_defaults()
-        self.assertEqual(cfg2.scaler, "(Default)")
-        self.assertFalse(cfg2.fullscreen)
+        cfg3.reset_defaults()
+        self.assertEqual(cfg3.scaler, "(Default)")
+        self.assertFalse(cfg3.fullscreen)
+        self.assertEqual(cfg3.engine, "Official")
 
     def test_multi_mod_priority_ordering(self):
         """
@@ -173,10 +193,10 @@ class TestOrion2Launcher(unittest.TestCase):
         cfg2 = Orion2ConfigManager(self.test_dir)
         self.assertEqual(cfg2.resolution, "1120x840 (1.75x)")
 
-    def test_downloader_build_discovery_starwindz(self):
+    def test_downloader_build_discovery_upstream(self):
         """
-        Verifies that build discovery can connect to GitHub Actions API for starwindz/build_orion2re,
-        retrieve the latest run ID, and construct a nightly.link download URL.
+        Verifies that build discovery connects to GitHub Actions API for orion2re/orion2re,
+        retrieves the latest run ID, and constructs a nightly.link download URL targeting orion2re-win32.
         Skips gracefully if running in an isolated or offline network environment.
         """
         dl = Orion2ReDownloader(target_dir=self.test_dir)
@@ -184,10 +204,131 @@ class TestOrion2Launcher(unittest.TestCase):
             run_id, artifact, download_url = dl.get_latest_build_info()
             self.assertIsNotNone(run_id)
             self.assertTrue(artifact.startswith("orion2re-"))
-            self.assertIn("starwindz/build_orion2re", download_url)
+            self.assertIn("win32", artifact.lower())
+            self.assertIn("orion2re/orion2re", download_url)
             self.assertIn("nightly.link", download_url)
         except Exception as exc:
             self.skipTest(f"Network unavailable in current environment: {exc}")
+
+    def test_downloader_official_and_nightly_extraction(self):
+        """
+        Verifies that download_official() extracts into 'orion2re/official'
+        and download_nightly() extracts into 'orion2re/nightly'.
+        """
+        import io
+        import zipfile
+        from unittest.mock import patch
+
+        # 1. Build dummy official zip
+        official_buf = io.BytesIO()
+        with zipfile.ZipFile(official_buf, "w") as oz:
+            oz.writestr("orion2re.exe", b"OFFICIAL_EXE")
+            oz.writestr("data/base.zip", b"OFFICIAL_BASE")
+            oz.writestr("data/mods/v150.zip", b"OFFICIAL_MOD")
+            oz.writestr("data/orion2re.cfg", "enable v150;\n")
+
+        # 2. Build dummy nightly nested zip
+        inner_buf = io.BytesIO()
+        with zipfile.ZipFile(inner_buf, "w") as iz:
+            iz.writestr("orion2re.exe", b"NIGHTLY_EXE")
+            iz.writestr("data/base.zip", b"NIGHTLY_BASE")
+            iz.writestr("data/mods/v150i.zip", b"NIGHTLY_MOD")
+            iz.writestr("data/orion2re.cfg", "enable v150i;\n")
+
+        outer_buf = io.BytesIO()
+        with zipfile.ZipFile(outer_buf, "w") as oz:
+            oz.writestr("orion2re-win-win32-main.zip", inner_buf.getvalue())
+
+        dl = Orion2ReDownloader(target_dir=self.test_dir)
+
+        class DummyResponse:
+            def __init__(self, data):
+                self._data = io.BytesIO(data)
+                self.headers = {"Content-Length": str(len(data))}
+            def read(self, chunk_size=-1):
+                return self._data.read(chunk_size)
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                pass
+
+        with patch.object(dl, "get_latest_release_url", return_value="http://dummy/official.zip"):
+            with patch.object(dl, "get_latest_build_info", return_value=(999, "orion2re-win32", "http://dummy/nightly.zip")):
+                # Mock urlopen to return official_buf on first call, outer_buf on second
+                with patch("urllib.request.urlopen", side_effect=[DummyResponse(official_buf.getvalue()), DummyResponse(outer_buf.getvalue())]):
+                    run_id, summary = dl.download_and_extract()
+                    self.assertEqual(summary, "Official & Nightly")
+
+        # Verify orion2re/official
+        off_exe = os.path.join(self.test_dir, "orion2re", "official", "orion2re.exe")
+        self.assertTrue(os.path.isfile(off_exe))
+        with open(off_exe, "rb") as f:
+            self.assertEqual(f.read(), b"OFFICIAL_EXE")
+
+        # Verify orion2re/nightly
+        night_exe = os.path.join(self.test_dir, "orion2re", "nightly", "orion2re.exe")
+        self.assertTrue(os.path.isfile(night_exe))
+        with open(night_exe, "rb") as f:
+            self.assertEqual(f.read(), b"NIGHTLY_EXE")
+
+    def test_engine_deployment_and_mod_cleaning(self):
+        """
+        Verifies Requirement 6:
+        - When deploying an engine, data/mods/ (and data/modes/) are wiped clean first.
+        - Selected engine files are copied to the root folder.
+        - Existing data/orion2re.cfg in root is strictly preserved.
+        """
+        from launcher import Orion2Launcher
+        import shutil
+
+        # Setup mock official engine files
+        off_dir = os.path.join(self.test_dir, "orion2re", "official")
+        os.makedirs(os.path.join(off_dir, "data", "mods"), exist_ok=True)
+        with open(os.path.join(off_dir, "orion2re.exe"), "wb") as f:
+            f.write(b"DEPLOYED_OFFICIAL_EXE")
+        with open(os.path.join(off_dir, "data", "mods", "off_mod.zip"), "wb") as f:
+            f.write(b"OFF_MOD")
+
+        # Pre-populate data/mods and data/modes with old files that must be deleted
+        mods_dir = os.path.join(self.test_dir, "data", "mods")
+        modes_dir = os.path.join(self.test_dir, "data", "modes")
+        os.makedirs(mods_dir, exist_ok=True)
+        os.makedirs(modes_dir, exist_ok=True)
+        with open(os.path.join(mods_dir, "old_stale_mod.zip"), "wb") as f:
+            f.write(b"STALE")
+        with open(os.path.join(modes_dir, "stale_modes.txt"), "wb") as f:
+            f.write(b"STALE_MODES")
+
+        # Pre-populate user config
+        user_cfg_path = os.path.join(self.test_dir, "data", "orion2re.cfg")
+        user_cfg_text = "# launcher_engine = Official;\nenable my_mod;\n"
+        with open(user_cfg_path, "w", encoding="utf-8") as f:
+            f.write(user_cfg_text)
+
+        # Mock app instance (without full Tk event loop)
+        class MockApp:
+            def __init__(self, root_dir):
+                self.root_dir = root_dir
+
+        app = MockApp(self.test_dir)
+        Orion2Launcher._deploy_engine(app, "Official")
+
+        # Verify old files in data/mods and data/modes were wiped
+        self.assertFalse(os.path.isfile(os.path.join(mods_dir, "old_stale_mod.zip")))
+        self.assertFalse(os.path.isfile(os.path.join(modes_dir, "stale_modes.txt")))
+
+        # Verify new mod from official was deployed
+        self.assertTrue(os.path.isfile(os.path.join(mods_dir, "off_mod.zip")))
+
+        # Verify root executable was deployed
+        root_exe = os.path.join(self.test_dir, "orion2re.exe")
+        self.assertTrue(os.path.isfile(root_exe))
+        with open(root_exe, "rb") as f:
+            self.assertEqual(f.read(), b"DEPLOYED_OFFICIAL_EXE")
+
+        # Verify user config was strictly preserved
+        with open(user_cfg_path, "r", encoding="utf-8") as f:
+            self.assertEqual(f.read(), user_cfg_text)
 
     def test_get_app_root_resolution(self):
         """

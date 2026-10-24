@@ -13,13 +13,13 @@
 !/test_launcher.py
 !/launcher.bat
 !/build.bat
-!/launcher.exe
 !/requirements.txt
 !/README.md
 !/screenshots/
 !/screenshots/**
 
 # Build artifacts
+launcher.exe
 build/
 dist/
 *.spec
@@ -33,4 +33,3 @@ __pycache__/
 .venv/
 venv/
 ENV/
-

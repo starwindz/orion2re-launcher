@@ -49,6 +49,8 @@ class Orion2ConfigManager:
         "2560x1440 (QHD)"
     ]
 
+    ENGINE_OPTIONS = ["Official", "Nightly"]
+
     # Official community router IP maintained for online multiplayer matching
     DEFAULT_ROUTER = "209.38.39.19"
 
@@ -64,7 +66,8 @@ class Orion2ConfigManager:
         self.cfg_path = os.path.join(self.data_dir, "orion2re.cfg")
         self.mods_dir = os.path.join(self.data_dir, "mods")
 
-        # Default configuration state: active mods list in priority order (index 0 = highest priority)
+        # Default configuration state
+        self.engine = "Official"
         self.mods = ["v150i"]
         self.scaler = "(Default)"
         self.vsync = False
@@ -102,6 +105,7 @@ class Orion2ConfigManager:
         Returns:
             bool: True if configuration was successfully written, False otherwise.
         """
+        self.engine = "Official"
         self.mods = ["v150i"]
         self.scaler = "(Default)"
         self.vsync = False
@@ -113,23 +117,27 @@ class Orion2ConfigManager:
 
     def get_available_mods(self):
         """
-        Scans the 'data/mods' directory for installed mods (.zip archives or subdirectories).
+        Scans 'data/mods' and the active engine's mod directory for installed mods (.zip archives or subdirectories).
         
         Returns:
             list[str]: Unique list of available mod names including built-in fallbacks.
         """
         mods = ["None (Vanilla)", "v150i", "v150", "v120"]
-        if os.path.isdir(self.mods_dir):
-            try:
-                for entry in sorted(os.listdir(self.mods_dir)):
-                    name, ext = os.path.splitext(entry)
-                    entry_path = os.path.join(self.mods_dir, entry)
-                    # A mod can be packaged as a zip file or an unpacked folder
-                    if ext.lower() == ".zip" or os.path.isdir(entry_path):
-                        if name not in mods:
-                            mods.append(name)
-            except Exception as e:
-                print(f"[ConfigManager] Error scanning mods in {self.mods_dir}: {e}")
+        engine_key = "official" if getattr(self, "engine", "Official").lower() == "official" else "nightly"
+        engine_mods_dir = os.path.join(self.root_dir, "orion2re", engine_key, "data", "mods")
+
+        for target_dir in (self.mods_dir, engine_mods_dir):
+            if os.path.isdir(target_dir):
+                try:
+                    for entry in sorted(os.listdir(target_dir)):
+                        name, ext = os.path.splitext(entry)
+                        entry_path = os.path.join(target_dir, entry)
+                        # A mod can be packaged as a zip file or an unpacked folder
+                        if ext.lower() == ".zip" or os.path.isdir(entry_path):
+                            if name not in mods:
+                                mods.append(name)
+                except Exception as e:
+                    print(f"[ConfigManager] Error scanning mods in {target_dir}: {e}")
         return mods
 
     def load(self):
@@ -137,6 +145,8 @@ class Orion2ConfigManager:
         Reads and parses existing configuration statements from 'data/orion2re.cfg'.
         Recognized options are stored in instance variables; unrecognized lines are
         preserved in self.extra_lines so user customizations remain intact.
+        
+        Supports reading fullscreen and resolution statements even when commented with '#'.
         
         Returns:
             bool: True if the file was loaded successfully, False if missing or unreadable.
@@ -148,6 +158,7 @@ class Orion2ConfigManager:
         height = None
         self.extra_lines = []
         loaded_mods = []
+        engine_explicit = False
 
         try:
             with open(self.cfg_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -155,6 +166,13 @@ class Orion2ConfigManager:
 
             for line in lines:
                 stripped = line.strip()
+
+                # 0. Engine selection directive if present: '# launcher_engine = Official|Nightly;'
+                m_eng = re.match(r"^#*\s*(?:launcher_engine\s*=\s*|Engine:\s*)(Official|Nightly)", stripped, re.I)
+                if m_eng:
+                    self.engine = m_eng.group(1).capitalize()
+                    engine_explicit = True
+                    continue
 
                 # 1. Active mod declaration: 'enable <mod_identifier>;'
                 # Multiple mods can be enabled. Order in file defines load priority (top = highest).
@@ -178,22 +196,28 @@ class Orion2ConfigManager:
                     self.vsync = (m_vsync.group(1).lower() == "true")
                     continue
 
-                # 4. Fullscreen presentation: 'interface fullscreen = true|false;'
-                m_fs = re.match(r"^interface\s+fullscreen\s*=\s*(true|false)\s*;", stripped, re.I)
+                # 4. Fullscreen presentation: 'interface fullscreen = true|false;' (supports commented '#')
+                m_fs = re.match(r"^#*\s*interface\s+fullscreen\s*=\s*(true|false)\s*;", stripped, re.I)
                 if m_fs:
                     self.fullscreen = (m_fs.group(1).lower() == "true")
+                    if not engine_explicit:
+                        self.engine = "Official" if stripped.startswith("#") else "Nightly"
                     continue
 
-                # 5. Window width: 'interface window_width = <pixels>;'
-                m_w = re.match(r"^interface\s+window_width\s*=\s*(\d+)\s*;", stripped)
+                # 5. Window width: 'interface window_width = <pixels>;' (supports commented '#')
+                m_w = re.match(r"^#*\s*interface\s+window_width\s*=\s*(\d+)\s*;", stripped)
                 if m_w:
                     width = int(m_w.group(1))
+                    if not engine_explicit and not stripped.startswith("#"):
+                        self.engine = "Nightly"
                     continue
 
-                # 6. Window height: 'interface window_height = <pixels>;'
-                m_h = re.match(r"^interface\s+window_height\s*=\s*(\d+)\s*;", stripped)
+                # 6. Window height: 'interface window_height = <pixels>;' (supports commented '#')
+                m_h = re.match(r"^#*\s*interface\s+window_height\s*=\s*(\d+)\s*;", stripped)
                 if m_h:
                     height = int(m_h.group(1))
+                    if not engine_explicit and not stripped.startswith("#"):
+                        self.engine = "Nightly"
                     continue
 
                 # 7. Multiplayer router address: 'interface router = "x.x.x.x";'
@@ -208,8 +232,8 @@ class Orion2ConfigManager:
                     stripped.startswith("# Active mods") or
                     stripped.startswith("# Custom user settings") or
                     stripped.startswith("# Startup display settings") or
-                    stripped.startswith("# interface scaler") or
-                    stripped.startswith("# interface vsync_enabled") or
+                    stripped.startswith("# launcher_engine") or
+                    re.match(r"^#*\s*interface\s+(scaler|vsync_enabled|fullscreen|window_width|window_height|router)\b", stripped, re.I) or
                     stripped.startswith("# enable ")):
                     continue
 
@@ -244,6 +268,7 @@ class Orion2ConfigManager:
         """
         Serializes current settings to 'data/orion2re.cfg' in Orion2Re engine format.
         Ensures directory existence and guarantees semicolon termination for each statement.
+        If engine is 'Official', Display Mode and Resolution settings are commented out with '# '.
         
         Returns:
             bool: True on success, False on I/O error.
@@ -252,7 +277,8 @@ class Orion2ConfigManager:
             os.makedirs(self.data_dir, exist_ok=True)
             lines = [
                 "# Orion2 Redone configuration. Generated by Orion2Re Launcher.\n",
-                "# ------------------------------------------------------------\n"
+                "# ------------------------------------------------------------\n",
+                f"# launcher_engine = {self.engine};\n"
             ]
 
             # 1. Mod statements in priority order (top line = highest priority)
@@ -273,14 +299,15 @@ class Orion2ConfigManager:
             # 3. VSync statement
             lines.append(f"interface vsync_enabled = {'true' if self.vsync else 'false'};\n")
 
-            # 4. Fullscreen and window dimensions
-            lines.append(f"interface fullscreen = {'true' if self.fullscreen else 'false'};\n")
+            # 4. Fullscreen and window dimensions (prefixed with '# ' for Official engine)
+            prefix = "# " if self.engine == "Official" else ""
+            lines.append(f"{prefix}interface fullscreen = {'true' if self.fullscreen else 'false'};\n")
             w, h = 1280, 960
             m_dim = re.match(r"^(\d+)x(\d+)", self.resolution)
             if m_dim:
                 w, h = int(m_dim.group(1)), int(m_dim.group(2))
-            lines.append(f"interface window_width = {w};\n")
-            lines.append(f"interface window_height = {h};\n")
+            lines.append(f"{prefix}interface window_width = {w};\n")
+            lines.append(f"{prefix}interface window_height = {h};\n")
 
             # 5. Router IP for online multiplayer
             if self.router:
@@ -294,6 +321,7 @@ class Orion2ConfigManager:
                     not s.startswith("# Custom user settings") and
                     not s.startswith("# Active mods") and
                     not s.startswith("# Orion2 Redone") and
+                    not s.startswith("# launcher_engine") and
                     not s.startswith("# ---")):
                     cleaned_extras.append(extra if extra.endswith("\n") else extra + "\n")
 
